@@ -4,25 +4,33 @@ from .Enumerations import DispositionType
 
 class ContentDisposition:
     """
-        A class to represent the Content-Disposition header of a MIME entity.
+    A class to represent the Content-Disposition header of a MIME entity.
+
+    This class parses and stores information from the Content-Disposition header,
+    which indicates how content should be presented (as attachment or inline)
+    and includes metadata such as filename, dates, and size.
     """
     def __init__(self):
         self.DispositionType: DispositionType = DispositionType.ATTACHMENT
-        """Disposition type of the MIME entity."""
+        """Specifies whether the content should be displayed inline or as an attachment."""
         self.FileName = ""
-        """File name of the MIME entity."""
+        """The suggested filename for the MIME entity when saved to disk."""
         self.CreationDate = ""
-        """Date when the MIME entity was created."""
+        """RFC 2822 formatted date when the MIME entity was originally created."""
         self.ModificationDate = ""
-        """Date when the MIME entity was last modified."""
+        """RFC 2822 formatted date when the MIME entity was last modified."""
         self.Size = 0
-        """Size of the MIME entity."""
+        """Size of the MIME entity content in bytes."""
 
     def parse(self, ContentDispositionString: str):
         """
-            A function to parse the given string and create a ContentDisposition object.
-            :param ContentDispositionString: The Content-Disposition string to be parsed.
-            :returns: no value(s).
+        Parses a Content-Disposition header string and populates the object's properties.
+
+        This method extracts disposition type (inline/attachment) and associated parameters
+        like filename, size, creation-date, and modification-date from the header string.
+
+        :param ContentDispositionString: The Content-Disposition header value to parse.
+        :returns: None - modifies the object's properties in place.
         """
         ContentDispositionString = ContentDispositionString.strip()
         if ContentDispositionString.find(";") != -1:
@@ -58,6 +66,14 @@ class ContentDisposition:
             self.DispositionType = ContentDispositionString.strip()
 
     def __str__(self) -> str:
+        """
+        Returns a JSON string representation of the ContentDisposition object.
+
+        This method converts all properties into a dictionary and serializes it
+        as a JSON string for easy debugging and logging purposes.
+
+        :returns: JSON string containing all ContentDisposition properties.
+        """
         return_data = dict()
         return_data.update({
             "Disposition-Type": self.DispositionType.name,

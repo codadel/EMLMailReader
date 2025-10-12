@@ -5,28 +5,35 @@ from copy import deepcopy
 
 class MailAttachment:
     """
-        Represents an attachment present in the EML file.
+    Represents a file attachment found in an email message.
+
+    This class encapsulates all information about an email attachment including
+    its content, metadata, and MIME properties required for proper handling and extraction.
     """
     def __init__(self):
         self.Name = str()
-        """Name of the attachment."""
+        """The filename of the attachment as it should appear when saved."""
         self.ContentType = ContentType()
-        """Content-Type of the attachment."""
+        """MIME Content-Type information including media type and parameters."""
         self.ContentDisposition = ContentDisposition()
-        """Content-Disposition of the attachment."""
+        """Content-Disposition header information including disposition type and metadata."""
         self.Contents = bytes()
-        """Contents of the attachment file as 'bytes'."""
+        """The actual binary content of the attachment file."""
         self.ContentID = str()
-        """Content-ID value for the attachment. This value is available in case the attachment is part of the email body."""
+        """Unique identifier for the attachment, used for referencing in HTML content."""
 
     def parse_values(self, contents: bytes, content_type: ContentType, content_disposition: ContentDisposition, content_id: str):
         """
-            Creates a 'MailAttachment' from the given parameters.
-            :param contents: Attachment file content given as 'bytes'.
-            :param content_type: The Content-Type of the attachment.
-            :param content_disposition: The Content-Disposition of the attachment.
-            :param content_id: The Content-ID value of the attachment.
-            :returns: no value(s).
+        Initializes the MailAttachment object with provided content and metadata.
+
+        This method populates all attachment properties and determines the appropriate
+        filename from either the Content-Type name parameter or Content-Disposition filename.
+
+        :param contents: Binary content of the attachment file.
+        :param content_type: Parsed Content-Type header information.
+        :param content_disposition: Parsed Content-Disposition header information.
+        :param content_id: Content-ID value for referencing the attachment.
+        :returns: None - modifies the object's properties in place.
         """
         self.Contents = deepcopy(contents)
         self.ContentType = deepcopy(content_type)
@@ -42,30 +49,39 @@ class MailAttachment:
 
 class MailAttachmentCollection:
     """
-    A Collection to hold a list of MailAttachment instance(s).
+    A collection class to manage multiple MailAttachment instances.
+
+    This class provides a container for storing and manipulating lists of email attachments
+    found within an email message, facilitating batch operations and iteration.
     """
     def __init__(self):
         self.__attachments = list[MailAttachment]()
-        """Iterable to hold the MailAttachment instance(s)."""
+        """Private list containing MailAttachment instances in the collection."""
 
     def append(self, attachment: MailAttachment):
         """
-            A function to insert a MailAttachment instance to the end of the collection.
-            :param attachment: MailAttachment object to be added to the end of the collection.
-            :returns: no value(s).
+        Adds a MailAttachment instance to the end of the collection.
+
+        :param attachment: MailAttachment object to be added to the collection.
+        :returns: None - modifies the collection in place.
         """
         self.__attachments.append(attachment)
 
     def length(self) -> int:
         """
-        A Function to return the number of 'MailAttachment' items in the collection instance.
-        :returns: the number of items in the collection.
+        Returns the number of MailAttachment items in the collection.
+
+        :returns: Integer count of MailAttachment instances in the collection.
         """
         return len(self.__attachments)
 
     def export_as_list(self) -> list:
         """
-        A function to export MailAddressCollection as a list of 'MailAttachment' instances present in the collection.
-        :returns: A new list containing all the 'MailAttachment' instance present in the collection.
+        Exports the collection as a new list of MailAttachment instances.
+
+        This method creates a deep copy of the internal collection to prevent
+        external modification of the collection's internal state.
+
+        :returns: A new list containing deep copies of all MailAttachment instances.
         """
         return deepcopy(self.__attachments)

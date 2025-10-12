@@ -10,17 +10,21 @@ from .Rx_Mail_Message import RxMailMessage
 
 class MailReader:
     """
-        MailReader class reads the contents of an EML file, extracts all the information present in the file and stores them as a Python class object.
+    Primary class for parsing and extracting information from EML (email) files.
+
+    This class reads EML files, parses their MIME structure, extracts headers, body content,
+    and attachments, then organizes everything into a structured RxMailMessage object.
+    Supports multipart messages, various encodings, and comprehensive error handling.
     """
     def __init__(self, logging_mode: LoggingMode = LoggingMode.NONE, TargetLoggingFolder: str = str()):
         self.__Lines = list()
-        """List of all lines read from the EML file."""
+        """List containing all lines read from the EML file for processing."""
         self.__NextLineIndex = 0
-        """Index of the next line to be processed in the EML file."""
+        """Current position index for tracking which line to process next."""
         self.__NewLineCharacter = str()
-        """Newline character used in the EML file to distinguish one line from another."""
+        """The newline character sequence used in the current EML file."""
         self.__EndOfFile = "EOF"
-        """Value returned when the end of EML file is reached."""
+        """Sentinel value returned when end of file is reached during parsing."""
         if logging_mode == LoggingMode.CONSOLE:
             Logger.set_configuration(LoggingMode.CONSOLE)
         elif logging_mode == LoggingMode.FILE:
@@ -28,9 +32,12 @@ class MailReader:
 
     def __set_newline_value(self):
         """
-            This function extracts the newline value used as a separator between one or more lines in the EML file. The newline character varies based on the operating system running the code so this function retrieves the appropriate newline character for the operating system.
-            :returns: no value(s).
+        Determines and sets the newline character sequence used in the EML file.
 
+        Different operating systems use different newline conventions (\\r\\n, \\r, \\n).
+        This method examines the first line to detect the correct sequence for proper parsing.
+
+        :returns: None - sets the internal newline character property.
         """
         first_line = self.__Lines[0]
         if first_line.endswith("\r\n"):
@@ -42,9 +49,13 @@ class MailReader:
 
     def get_email(self, emlPath: str) -> RxMailMessage | None:
         """
-            This function parses the EML file present at the given path and returns the parsed information as a 'RxMailMessage' object.
-            :param emlPath: The complete file path where the EML file is located.
-            :returns: a RxMailMessage object containing all the information parsed from the EML file. If there were any errors encountered while parsing, 'NoneType' is returned.
+        Parses an EML file and returns a structured representation of the email message.
+
+        This is the main entry point for email parsing. It reads the file, processes
+        all MIME parts recursively, and extracts headers, body, and attachments.
+
+        :param emlPath: Complete file system path to the EML file to be parsed.
+        :returns: RxMailMessage object containing all parsed email data, or None if parsing fails.
         """
         message = RxMailMessage()
         EmlFile = None
@@ -69,10 +80,15 @@ class MailReader:
 
     def __process_mime_entity(self, message: RxMailMessage, ParentBoundary: str) -> RxMailMessage:
         """
-            A recursive function that processes the MIME parts present in the EML file and represents each of these parts as a RxMailMessage object.
-            :param message: The message object where information parsed from the MIME part will be stored.
-            :param ParentBoundary: Parent boundary value for the MIME part being processed.
-            :returns: a RxMailMessage object with all the parsed MIME part information.
+        Recursively processes individual MIME parts within an email message.
+
+        This method handles the parsing of MIME entities including headers, multipart boundaries,
+        and content extraction. It properly handles nested multipart structures and builds
+        a hierarchical representation of the email content.
+
+        :param message: RxMailMessage object to populate with parsed data.
+        :param ParentBoundary: Boundary string of the parent multipart entity (empty for top-level).
+        :returns: Populated RxMailMessage object with parsed MIME entity information.
         """
         try:
             CompletedHeader = str()
@@ -148,10 +164,15 @@ class MailReader:
 
     def __process_header(self, header: str, message: RxMailMessage) -> None:
         """
-            A function to process a header string and store it in the RxMailMessage object.
-            :param header: The Header string to be processed.
-            :param message: The MIME Entity object where the processed header will be stored.
-            :returns: no value(s).
+        Parses individual email headers and populates the appropriate message properties.
+
+        This method recognizes standard email headers (From, To, Subject, etc.) and
+        specialized MIME headers (Content-Type, Content-Disposition, etc.), properly
+        decoding encoded content and handling multiple recipients.
+
+        :param header: Complete header string including name and value.
+        :param message: RxMailMessage object to populate with header information.
+        :returns: None - modifies the message object in place.
         """
         try:
             header = header.strip()
@@ -210,8 +231,12 @@ class MailReader:
 
     def __get_next_line(self) -> str:
         """
-            This function gets the next line to be processed from the EML file. If End of file has been reached, the function returns the 'EOF' value as the next line.
-            :returns: the next line to be processed.
+        Retrieves the next line from the EML file for processing.
+
+        This method manages the sequential reading of file lines, handles newline character
+        stripping, and returns an EOF marker when the end of file is reached.
+
+        :returns: Next line content with newline characters removed, or EOF marker if file end reached.
         """
         NextLine = str()
         try:
@@ -228,8 +253,12 @@ class MailReader:
 
     def __get_last_line(self) -> str:
         """
-            This function gets the last line that was processed from the EML file.
-            :returns: a string containing the last line processed.
+        Retrieves the most recently processed line from the EML file.
+
+        This method provides access to the previous line for boundary detection
+        and parsing logic that needs to look back at processed content.
+
+        :returns: Content of the last processed line with newline characters removed.
         """
         LastLine = str()
         try:
@@ -242,11 +271,15 @@ class MailReader:
 
     def __parse_entity_body(self, message: RxMailMessage, complete_body: str):
         """
-            This function parses the MIME part body and stores the parsed content in the appropriate 'RxMailMessage' object.
+        Decodes and processes the body content of a MIME entity based on its transfer encoding.
 
-            :param message: The Entity object where the processed content is to be stored.
-            :param complete_body: The encoded string to be decoded and stored as MIME entity body.
-            :returns: no value(s).
+        This method handles various content transfer encodings (Base64, Quoted-Printable, etc.)
+        and determines whether content should be treated as text or as a file attachment based
+        on the Content-Type header.
+
+        :param message: RxMailMessage object to store the decoded content.
+        :param complete_body: Raw encoded body content from the MIME entity.
+        :returns: None - modifies the message object's Body or Attachments properties.
         """
         try:
             if message.ContentTransferEncoding == TransferEncoding.BASE64:

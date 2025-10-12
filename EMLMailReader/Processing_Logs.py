@@ -7,16 +7,25 @@ from .Custom_Exceptions import FolderNotAvailableError
 
 class Logger:
     """
-    A class to manage the configuration and generation of logs during EML file processing.
+    A static utility class for managing logging configuration and output during EML processing.
+
+    This class provides centralized logging functionality with support for console output,
+    file output, or disabled logging. It integrates with Python's standard logging module
+    to provide consistent log formatting and multiple output destinations.
     """
 
     @staticmethod
     def set_configuration(logging_mode: LoggingMode, target_folder: str = str()) -> str:
         """
-        A function to enable and setup configurations for logging.
-        :param logging_mode: Denotes where the generated logs have to be stored or printed.
-        :param target_folder: The target folder where the log file must be created. This parameter value must be provided only when 'logging_mode' is 'LoggingMode.FILE'.
-        :returns: the complete path to the log file generated. If the 'logging_mode' is 'LoggingMode.CONSOLE', an empty string is returned.
+        Configures the logging system with the specified output mode and destination.
+
+        This method initializes Python's logging system with appropriate handlers,
+        formatters, and output destinations. For file logging, it creates timestamped
+        log files in the specified directory.
+
+        :param logging_mode: Determines where log messages should be output (console, file, or disabled).
+        :param target_folder: Directory path for log file creation (required only for FILE mode).
+        :returns: Complete path to the created log file, or empty string for console/disabled modes.
         """
         complete_file_path = str()
         if logging_mode == LoggingMode.CONSOLE:
@@ -34,10 +43,14 @@ class Logger:
     @staticmethod
     def logentry(message: str, logging_level: LoggingLevel):
         """
-        A function to create and print a new log message.
-        :param message: Message to be logged.
-        :param logging_level: The type of message that is being logged.
-        :returns: no value(s).
+        Creates and outputs a log entry with the specified message and severity level.
+
+        This method routes log messages to the appropriate Python logging function
+        based on the specified logging level, ensuring consistent formatting and output.
+
+        :param message: Text content of the log message to be recorded.
+        :param logging_level: Severity level of the message (DEBUG, INFO, ERROR, CRITICAL).
+        :returns: None - outputs the message through the configured logging system.
         """
         if logging_level == LoggingLevel.INFO:
             logging.info(message)

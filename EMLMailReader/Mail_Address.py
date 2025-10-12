@@ -4,19 +4,27 @@ from copy import deepcopy
 
 class MailAddress:
     """
-        A class to represent an email address.
+    A class to represent an email address with optional display name.
+
+    This class parses and stores email addresses in the format used by email headers,
+    supporting both simple addresses (user@domain.com) and addresses with display names
+    ("John Doe" <user@domain.com>).
     """
     def __init__(self):
         self.DisplayName = str()
-        """The display name component of an email address."""
+        """The human-readable name associated with the email address (optional)."""
         self.Email = str()
-        """The complete email address."""
+        """The actual email address (user@domain.com format)."""
 
     def parse(self, MailAddressString: str):
         """
-            A function to parse the received input string and set the properties of the 'MailAddress' object.
-            :param MailAddressString: String value to be parsed into a 'MailAddress' object.
-            :returns: no value(s).
+        Parses an email address string and extracts the display name and email components.
+
+        This method handles both simple email addresses and those with display names,
+        automatically decoding any encoded header content in the display name portion.
+
+        :param MailAddressString: Email address string to parse (e.g., "John Doe <john@example.com>").
+        :returns: None - modifies the object's properties in place.
         """
         MailAddressString = MailAddressString.strip()
         if MailAddressString.find("<") == -1:
@@ -30,6 +38,14 @@ class MailAddress:
             self.Email = MailAddressString[index + 1:indexOne].strip()
 
     def __str__(self) -> str:
+        """
+        Returns a properly formatted email address string.
+
+        If a display name is present, returns "Display Name <email@domain.com>",
+        otherwise returns just the email address.
+
+        :returns: Formatted email address string.
+        """
         if self.DisplayName != str():
             return self.DisplayName + " <" + self.Email + ">"
         else:
@@ -38,21 +54,32 @@ class MailAddress:
 
 class MailAddressCollection:
     """
-    A Collection to hold a list of MailAddress instance(s).
+    A collection class to manage multiple MailAddress instances.
+
+    This class provides a container for storing and manipulating lists of email addresses
+    commonly found in email headers like To, Cc, Bcc, and Reply-To fields.
     """
     def __init__(self):
         self.__addresses = list[MailAddress]()
-        """Iterable to hold the MailAddress instance(s)."""
+        """Private list containing MailAddress instances in the collection."""
 
     def append(self, address: MailAddress):
         """
-        A function to insert a MailAddress instance to the end of the collection.
-        :param address: MailAddress object to be added to the end of the collection.
-        :returns: no value(s).
+        Adds a MailAddress instance to the end of the collection.
+
+        :param address: MailAddress object to be added to the collection.
+        :returns: None - modifies the collection in place.
         """
         self.__addresses.append(address)
 
     def __str__(self) -> str:
+        """
+        Returns a semicolon-separated string of all email addresses in the collection.
+
+        This format is commonly used in email headers for multiple recipients.
+
+        :returns: Semicolon-delimited string of formatted email addresses.
+        """
         mail_addresses = list()
         for address in self.__addresses:
             mail_addresses.append(str(address))
@@ -61,14 +88,19 @@ class MailAddressCollection:
 
     def length(self) -> int:
         """
-        A Function to return the number of 'MailAddress' items in the collection instance.
-        :returns: the number of items in the collection.
+        Returns the number of MailAddress items in the collection.
+
+        :returns: Integer count of MailAddress instances in the collection.
         """
         return len(self.__addresses)
 
     def export_as_list(self) -> list:
         """
-        A function to export MailAddressCollection as a list of 'MailAddress' instances present in the collection.
-        :returns: A new list containing all the 'MailAddress' instance present in the collection.
+        Exports the collection as a new list of MailAddress instances.
+
+        This method creates a deep copy of the internal collection to prevent
+        external modification of the collection's internal state.
+
+        :returns: A new list containing deep copies of all MailAddress instances.
         """
         return deepcopy(self.__addresses)

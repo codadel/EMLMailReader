@@ -7,7 +7,7 @@ name = "emlmailreader"
 version = "1.0.3"
 description = "Parse EML file and export the information extracted as JSON."
 readme = "README.md"
-authors = [{ name = "Mahesh Kumaar Balaji", email = "maheshkumaar.balaji@outlook.com" }]
+authors = [{ name = "Mahesh Kumaar Balaji", email = "mkb@citadelofcode.com" }]
 license = { file = "LICENSE" }
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -24,4 +24,3 @@ packages = ["EMLMailReader"]
 [project.urls]
 Homepage = "https://github.com/citadelofcode/EMLMailReader"
 Issues = "https://github.com/citadelofcode/EMLMailReader/issues"
-Documentation = "https://github.com/citadelofcode/EMLMailReader/wiki"

@@ -10,57 +10,64 @@ from .Custom_Exceptions import FolderNotAvailableError
 
 class RxMailMessage:
     """
-        A class to represent all the information parsed from the EML file.
+    Comprehensive representation of a parsed email message and its MIME structure.
+
+    This class encapsulates all information extracted from an EML file including headers,
+    body content, attachments, and MIME metadata. It supports both simple and complex
+    multipart email structures with full hierarchical representation of nested MIME parts.
     """
     def __init__(self):
         self.From = None
-        """Email address in the 'From' header of EML file."""
+        """Sender's email address from the 'From' header."""
         self.To = MailAddressCollection()
-        """A list of all the emails present in the 'To' header of EML file."""
+        """Collection of recipient email addresses from the 'To' header."""
         self.Cc = MailAddressCollection()
-        """A list of all the emails present in the 'Cc' header of EML file."""
+        """Collection of carbon copy recipient addresses from the 'Cc' header."""
         self.Bcc = MailAddressCollection()
-        """A list of all the emails present in the 'Bcc' header of EML file."""
+        """Collection of blind carbon copy recipient addresses from the 'Bcc' header."""
         self.ReplyTo = MailAddressCollection()
-        """A list of all the emails present in the 'Reply-To' header of EML file."""
+        """Collection of reply-to addresses from the 'Reply-To' header."""
         self.Subject = str()
-        """Email Subject"""
+        """Email subject line with decoded content."""
         self.Body = str()
-        """Complete email body."""
+        """Decoded text content of the email body."""
         self.ContentType = None
-        """Content-Type of MIME part."""
+        """MIME Content-Type information for this message part."""
         self.ContentDisposition = None
-        """Content-Disposition of MIME part."""
+        """MIME Content-Disposition information for this message part."""
         self.ContentTransferEncoding = TransferEncoding.SEVEN_BIT
-        """Content-Transfer-Encoding of MIME part."""
+        """Transfer encoding method used for this message part content."""
         self.Headers = dict()
-        """List of all headers present in the MIME part."""
+        """Dictionary of additional headers not handled by specific properties."""
         self.MessageID = str()
-        """'Message-ID' header value."""
+        """Unique message identifier from the 'Message-ID' header."""
         self.IsMultiPart = False
-        """Denotes if the current part is single part (False) or multi-part (True)."""
+        """Indicates whether this message contains multiple MIME parts."""
         self.MimeVersion = str()
-        """'MIME-Version' header value."""
+        """MIME version specification from the 'MIME-Version' header."""
         self.Date = str()
-        """'Date' header value."""
+        """Date and time when the message was sent from the 'Date' header."""
         self.Children = list()
-        """List of child MIME parts."""
+        """List of child MIME parts for multipart messages."""
         self.ContentDescription = str()
-        """'Content-Description' header value."""
+        """Textual description of the content from 'Content-Description' header."""
         self.EntityType = EntityType.MIME_PART
-        """Denotes the type of the MIME part."""
+        """Classification of this MIME entity (text, attachment, or container)."""
         self.Attachments = MailAttachmentCollection()
-        """Contains all the attachments in the MIME part."""
+        """Collection of all file attachments found in this message."""
         self.ContentID = str()
-        """'Content-ID' header value."""
+        """Unique content identifier for referencing this part from 'Content-ID' header."""
 
     def add_mail_address(self, PropertyName: str, MailAddressValue: str):
         """
-            [FOR INTERNAL USE ONLY]
-            Adds a MailAddress() to the RxMailMessage object. This function typically parses the To, From, Cc, ReplyTo fields in the EML file.
-            :param PropertyName: Name of the property in RxMailMessage object.
-            :param MailAddressValue: The value to be parsed as a MailAddress.
-            :returns: no value(s).
+        [INTERNAL USE ONLY] Parses and adds an email address to the specified recipient collection.
+
+        This method is used during EML parsing to populate recipient lists (To, Cc, Bcc, ReplyTo)
+        from header values. It handles address parsing and adds to the appropriate collection.
+
+        :param PropertyName: Name of the recipient property ("To", "Cc", "Bcc", "ReplyTo").
+        :param MailAddressValue: Raw email address string to parse and add.
+        :returns: None - modifies the appropriate address collection.
         """
         mail_address = MailAddress()
         mail_address.parse(MailAddressValue)
@@ -77,30 +84,39 @@ class RxMailMessage:
 
     def set_content_type(self, ContentTypeValue: str):
         """
-            [FOR INTERNAL USE ONLY]
-            Sets the Content-Type for the current MIME part.
-            :param ContentTypeValue: String value to be parsed as ContentType.
-            :returns: no value(s).
+        [INTERNAL USE ONLY] Parses and sets the Content-Type header for this MIME part.
+
+        This method creates a ContentType object from the header string and assigns it
+        to this message part. Used during EML parsing to process Content-Type headers.
+
+        :param ContentTypeValue: Raw Content-Type header string to parse.
+        :returns: None - sets the ContentType property of this message.
         """
         self.ContentType = ContentType()
         self.ContentType.parse(ContentTypeValue)
 
     def set_content_disposition(self, ContentDispositionValue: str):
         """
-            [FOR INTERNAL USE ONLY]
-            Sets the Content-Disposition for the current MIME part.
-            :param ContentDispositionValue: String value to be parsed as ContentDisposition.
-            :returns: no value(s).
+        [INTERNAL USE ONLY] Parses and sets the Content-Disposition header for this MIME part.
+
+        This method creates a ContentDisposition object from the header string and assigns it
+        to this message part. Used during EML parsing to process Content-Disposition headers.
+
+        :param ContentDispositionValue: Raw Content-Disposition header string to parse.
+        :returns: None - sets the ContentDisposition property of this message.
         """
         self.ContentDisposition = ContentDisposition()
         self.ContentDisposition.parse(ContentDispositionValue)
 
     def set_content_transfer_encoding(self, ContentTransferEncodingValue: str):
         """
-            [FOR INTERNAL USE ONLY]
-            Sets the Content-Transfer-Encoding for the current MIME part.
-            :param ContentTransferEncodingValue: String value to be parsed as ContentTransferEncoding.
-            :returns: no value(s).
+        [INTERNAL USE ONLY] Parses and sets the Content-Transfer-Encoding for this MIME part.
+
+        This method converts the header string to the appropriate TransferEncoding enum value.
+        Defaults to 7-bit encoding for unrecognized values. Used during EML parsing.
+
+        :param ContentTransferEncodingValue: Raw Content-Transfer-Encoding header string.
+        :returns: None - sets the ContentTransferEncoding property of this message.
         """
         ContentTransferEncodingValue = ContentTransferEncodingValue.lower()
         if ContentTransferEncodingValue == "8bit":
@@ -114,9 +130,13 @@ class RxMailMessage:
 
     def set_entity_type(self):
         """
-            [FOR INTERNAL USE ONLY]
-            This function updates the entity type for the MIME part.
-            :returns: no value(s).
+        [INTERNAL USE ONLY] Determines and sets the entity type based on the Content-Type.
+
+        This method classifies the MIME part as ATTACHMENT (binary files), TEXT (readable content),
+        or MIME_PART (multipart container) based on the media type. Used during parsing to
+        facilitate proper content handling.
+
+        :returns: None - sets the EntityType property of this message.
         """
         media_type = self.ContentType.MediaType.lower()
         if media_type.startswith("application") or media_type.startswith("image"):
@@ -128,8 +148,13 @@ class RxMailMessage:
 
     def export_as_json(self) -> str:
         """
-        Function that converts a RxMailMessage object to a JSON string.
-        :returns: a JSON string containing all the fields of the RxMailMessage object.
+        Converts the email message to a JSON string representation.
+
+        This method serializes key message properties into a JSON format suitable for
+        logging, debugging, or data exchange. Includes essential headers, metadata,
+        and attachment count but excludes binary content and body text.
+
+        :returns: JSON string containing structured representation of the message.
         """
         final_object = dict()
         final_object.update({
@@ -152,9 +177,15 @@ class RxMailMessage:
 
     def save_attachments(self, TargetFolderPath: str):
         """
-        A function to save all the attachments in the RxMailMessage object to the target folder.
-        :param TargetFolderPath: Target folder where the attachments will be saved. If target folder does not exist, an exception will be thrown.
-        :returns: no value(s).
+        Saves all email attachments to the specified directory.
+
+        This method extracts and writes all attachment files to disk using their
+        original filenames. If the target directory doesn't exist, an exception is raised.
+        Existing files with the same names will be overwritten.
+
+        :param TargetFolderPath: Directory path where attachment files should be saved.
+        :returns: None - creates files in the specified directory.
+        :raises: FolderNotAvailableError if the target directory doesn't exist.
         """
         if os.path.exists(TargetFolderPath):
             for attachment in self.Attachments.export_as_list():
