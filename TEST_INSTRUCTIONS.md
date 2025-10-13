@@ -1,10 +1,10 @@
-# Test Instructions for EMLMailReader
+# Test Instructions
 
 This document provides instructions on how to run the test suite for the EMLMailReader library.
 
 ## Prerequisites
 
-Ensure you have Python 3.7+ installed and you're in the project root directory:
+Ensure you have Python 3.12+ installed and you're in the project root directory:
 
 ```bash
 cd /path/to/EMLMailReader
@@ -218,6 +218,4 @@ When adding new tests:
 2. Include comprehensive docstrings for all test methods
 3. Test both positive and negative scenarios
 4. Include edge cases and error conditions
-5. Maintain code coverage above 85%
-
-For more information about the EMLMailReader library, see the main README.md file.
+5. Maintain code coverage above `90%`.
