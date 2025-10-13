@@ -123,6 +123,6 @@ parse_disposition_headers()
 
 ## Related Classes
 
-- [DispositionType](Enumerations.md#dispositiontype) - Enumeration for disposition types
+- [DispositionType](Enumerations.md#dispositiontype-enumeration) - Enumeration for disposition types
 - [MailAttachment](MailAttachment.md) - Uses ContentDisposition for attachment metadata
 - [RxMailMessage](RxMailMessage.md) - Email message parts with ContentDisposition

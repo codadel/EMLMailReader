@@ -1,9 +1,10 @@
-site_name: EMLMailReader Docs
+site_name: Documentation
+site_url: https://citadelofcode.github.io/EMLMailReader
 theme:
   name: material
 docs_dir: docs
 nav:
-  - Home: Home.md
+  - Home: index.md
   - API Reference:
       - Content Disposition: ContentDisposition.md
       - Content Type: ContentType.md
