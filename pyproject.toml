@@ -24,3 +24,4 @@ packages = ["EMLMailReader"]
 [project.urls]
 Homepage = "https://github.com/citadelofcode/EMLMailReader"
 Issues = "https://github.com/citadelofcode/EMLMailReader/issues"
+Documentation = "https://citadelofcode.github.io/EMLMailReader"

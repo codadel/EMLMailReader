@@ -1,0 +1,21 @@
+site_name: EMLMailReader Docs
+theme:
+  name: material
+docs_dir: docs
+nav:
+  - Home: Home.md
+  - API Reference:
+      - Content Disposition: ContentDisposition.md
+      - Content Type: ContentType.md
+      - Enumerations: Enumerations.md
+      - Exceptions: Exceptions.md
+      - Logger: Logger.md
+      - Mail Address: MailAddress.md
+      - Mail Address Collection: MailAddressCollection.md
+      - Mail Attachment: MailAttachment.md
+      - Mail Attachment Collection: MailAttachmentCollection.md
+      - Mail Reader: MailReader.md
+      - Rx Mail Message: RxMailMessage.md
+      - Text Encoding: TextEncoding.md
+repo_url: https://github.com/citadelofcode/EMLMailReader
+repo_name: EMLMailReader
