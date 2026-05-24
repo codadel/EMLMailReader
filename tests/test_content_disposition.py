@@ -1,4 +1,5 @@
 import unittest
+import json
 from EMLMailReader import ContentDisposition, DispositionType
 
 
@@ -75,6 +76,21 @@ class TestContentDisposition(unittest.TestCase):
         """
         self.content_disposition.parse("attachment; fname=\"Sample File Name.pdf\"")
         self.assertEqual(self.content_disposition.DispositionType, DispositionType.ATTACHMENT, "Presence of invalid property should not affect the processing of valid properties.")
+
+    def test_string_representation_returns_json(self):
+        """
+        Checks if string representation returns the parsed disposition data as JSON.
+        :returns: Does not return a value.
+        """
+        self.content_disposition.parse("attachment; filename=\"Getting started with OneDrive-CFTS-MKB.pdf\"; size=1311269; creation-date=\"Fri, 22 Mar 2024 22:52:22 GMT\"; modification-date=\"Fri, 22 Mar 2024 22:52:22 GMT\"")
+
+        disposition_data = json.loads(str(self.content_disposition))
+
+        self.assertEqual(disposition_data["Disposition-Type"], "ATTACHMENT", "Disposition type JSON value does not match.")
+        self.assertEqual(disposition_data["File-Name"], "Getting started with OneDrive-CFTS-MKB.pdf", "File name JSON value does not match.")
+        self.assertEqual(disposition_data["Creation-Date"], "Fri, 22 Mar 2024 22:52:22 GMT", "Creation date JSON value does not match.")
+        self.assertEqual(disposition_data["Modification-Date"], "Fri, 22 Mar 2024 22:52:22 GMT", "Modification date JSON value does not match.")
+        self.assertEqual(disposition_data["Size"], 1311269, "Size JSON value does not match.")
 
 
 if __name__ == "__main__":

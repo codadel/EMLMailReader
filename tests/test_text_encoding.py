@@ -185,6 +185,15 @@ class TestTextEncoding(unittest.TestCase):
                 # Method might have different signature or behavior
                 pass
 
+    def test_decode_quoted_printable_empty_charset_defaults_to_utf8(self):
+        """
+        Test decode_quoted_printable_string() defaults to UTF-8 when no charset is provided.
+        :returns: Does not return a value.
+        """
+        decoded = TextEncoding.decode_quoted_printable_string("caf=C3=A9", "", False)
+
+        self.assertEqual(decoded, "café", "Empty charset should default quoted-printable decoding to UTF-8.")
+
     def test_decode_base64_file_with_whitespace(self):
         """
         Test decode_base64_file() with various whitespace characters.

@@ -26,10 +26,10 @@ class TestProcessingLogs(unittest.TestCase):
         """
         Clean up temporary directories and reset logging configuration.
         """
-        if os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
         # Clear logging configuration after tests
         self.close_logging_handlers()
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
 
     def close_logging_handlers(self):
         """
@@ -183,7 +183,7 @@ class TestProcessingLogs(unittest.TestCase):
         """
         # Create first log file
         result1 = Logger.set_configuration(LoggingMode.FILE, self.temp_dir)
-        logging.getLogger().handlers.clear()
+        self.close_logging_handlers()
 
         # Create second log file (should have different timestamp)
         import time
@@ -227,7 +227,7 @@ class TestProcessingLogs(unittest.TestCase):
                 console_formatter = handler.formatter
                 break
 
-        logging.getLogger().handlers.clear()
+        self.close_logging_handlers()
 
         # Test file mode format
         log_file_path = Logger.set_configuration(LoggingMode.FILE, self.temp_dir)

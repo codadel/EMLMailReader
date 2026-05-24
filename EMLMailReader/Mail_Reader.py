@@ -143,7 +143,8 @@ class MailReader:
                         message.Children.append(message_child)
                         for attachment in message_child.Attachments.export_as_list():
                             message.Attachments.append(attachment)
-                        message.Body = message_child.Body
+                        if message_child.Body != str():
+                            message.Body = message_child.Body
                         if self.__get_last_line() == BoundaryStart:
                             self.__NextLineIndex = self.__NextLineIndex - 1
                     elif line == ParentBoundaryStart or line == ParentBoundaryEnd:
