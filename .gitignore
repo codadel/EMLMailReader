@@ -165,3 +165,7 @@ Output/
 bin/
 pyvenv.cfg
 include/
+
+# Graphify generated knowledge graph artifacts
+.graphify*
+graphify-out/
