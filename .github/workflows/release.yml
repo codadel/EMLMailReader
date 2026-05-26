@@ -1,0 +1,108 @@
+name: Release to PyPI
+
+on:
+  push:
+    branches:
+      - release
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Test, bump patch version, and build
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.bump-version.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build and test dependencies
+        run: |
+          python -m pip install --upgrade pip build
+          python -m pip install -e . -r requirements.txt
+
+      - name: Run tests
+        run: python -m unittest discover tests -v
+
+      - name: Bump patch version
+        id: bump-version
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          pyproject = Path("pyproject.toml")
+          text = pyproject.read_text(encoding="utf-8")
+          match = re.search(r'(?m)^version\s*=\s*"(\d+)\.(\d+)\.(\d+)"\s*$', text)
+          if not match:
+              raise SystemExit("Could not find [project] semantic version in pyproject.toml")
+
+          major, minor, patch = (int(part) for part in match.groups())
+          new_version = f"{major}.{minor}.{patch + 1}"
+          updated = text[:match.start()] + f'version = "{new_version}"' + text[match.end():]
+          pyproject.write_text(updated, encoding="utf-8")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={new_version}\n")
+          print(f"Bumped version to {new_version}")
+          PY
+
+      - name: Commit version bump and create tag
+        run: |
+          version="${{ steps.bump-version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "v${version}" >/dev/null 2>&1; then
+            echo "Tag v${version} already exists"
+            exit 1
+          fi
+
+          git add pyproject.toml
+          git commit -m "chore(release): v${version} [skip release]"
+          git tag "v${version}"
+          git push origin HEAD:release
+          git push origin "v${version}"
+
+      - name: Build package distributions
+        run: python -m build
+
+      - name: Upload package distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build-release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/emlmailreader
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download package distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

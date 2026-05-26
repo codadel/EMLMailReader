@@ -1,6 +1,6 @@
 ![EMLMailReader logo](https://static.citadelofcode.com/emlmailreader/logo.png)
 
-![PyPI version](https://img.shields.io/pypi/v/EMLMailReader.svg) ![Static Badge](https://img.shields.io/badge/powered_by-Citadel_of_Code-orange)
+![PyPI version](https://img.shields.io/pypi/v/EMLMailReader.svg) ![Static Badge](https://img.shields.io/badge/powered_by-Codadel-orange)
 
 ## Overview
 
@@ -59,11 +59,6 @@ if message:
     json_data = message.export_as_json()
     print(json_data)
 ```
-
-## Requirements
-
-- Python 3.12+
-- Standard library modules: `os`, `json`, `logging`, `datetime`, `base64`, `quopri`, `enum`, `copy`
 
 ## License
 
