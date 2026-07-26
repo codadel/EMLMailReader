@@ -1,196 +1,170 @@
 import json
 import os
-from .Mail_Address import MailAddress, MailAddressCollection
-from .Mail_Attachment import MailAttachmentCollection
+
 from .Content_Type import ContentType
-from .Content_Disposition import ContentDisposition
-from .Enumerations import TransferEncoding, EntityType
+from .Mail_Address import AddressList
+from .Standards import HeaderCollection, TransferEncodingValue
 from .Custom_Exceptions import FolderNotAvailableError
 
 
 class RxMailMessage:
-    """
-    Comprehensive representation of a parsed email message and its MIME structure.
+    """One parsed Internet message or MIME entity.
 
-    This class encapsulates all information extracted from an EML file including headers,
-    body content, attachments, and MIME metadata. It supports both simple and complex
-    multipart email structures with full hierarchical representation of nested MIME parts.
+    Version 2 exposes one canonical representation for every field.  The same
+    class represents the root message and every node in its MIME tree.
     """
+
     def __init__(self):
-        self.From = None
-        """Sender's email address from the 'From' header."""
-        self.To = MailAddressCollection()
-        """Collection of recipient email addresses from the 'To' header."""
-        self.Cc = MailAddressCollection()
-        """Collection of carbon copy recipient addresses from the 'Cc' header."""
-        self.Bcc = MailAddressCollection()
-        """Collection of blind carbon copy recipient addresses from the 'Bcc' header."""
-        self.ReplyTo = MailAddressCollection()
-        """Collection of reply-to addresses from the 'Reply-To' header."""
-        self.Subject = str()
-        """Email subject line with decoded content."""
-        self.Body = str()
-        """Decoded text content of the email body."""
-        self.ContentType = None
-        """MIME Content-Type information for this message part."""
-        self.ContentDisposition = None
-        """MIME Content-Disposition information for this message part."""
-        self.ContentTransferEncoding = TransferEncoding.SEVEN_BIT
-        """Transfer encoding method used for this message part content."""
-        self.Headers = dict()
-        """Dictionary of additional headers not handled by specific properties."""
-        self.MessageID = str()
-        """Unique message identifier from the 'Message-ID' header."""
-        self.IsMultiPart = False
-        """Indicates whether this message contains multiple MIME parts."""
-        self.MimeVersion = str()
-        """MIME version specification from the 'MIME-Version' header."""
-        self.Date = str()
-        """Date and time when the message was sent from the 'Date' header."""
-        self.Children = list()
-        """List of child MIME parts for multipart messages."""
-        self.ContentDescription = str()
-        """Textual description of the content from 'Content-Description' header."""
-        self.EntityType = EntityType.MIME_PART
-        """Classification of this MIME entity (text, attachment, or container)."""
-        self.Attachments = MailAttachmentCollection()
-        """Collection of all file attachments found in this message."""
-        self.ContentID = str()
-        """Unique content identifier for referencing this part from 'Content-ID' header."""
+        self.Headers = HeaderCollection()
+        self.From = AddressList()
+        self.Sender = AddressList()
+        self.ReplyTo = AddressList()
+        self.To = AddressList()
+        self.Cc = AddressList()
+        self.Bcc = AddressList()
+        self.Subject = ""
+        self.Date = None
+        self.MessageID = None
+        self.InReplyTo = []
+        self.References = []
+        self.Comments = []
+        self.Keywords = []
+        self.Received = []
+        self.ReturnPath = ""
+        self.ResentBlocks = []
+        self.TraceBlocks = []
 
-    def add_mail_address(self, PropertyName: str, MailAddressValue: str):
-        """
-        [INTERNAL USE ONLY] Parses and adds an email address to the specified recipient collection.
-
-        This method is used during EML parsing to populate recipient lists (To, Cc, Bcc, ReplyTo)
-        from header values. It handles address parsing and adds to the appropriate collection.
-
-        :param PropertyName: Name of the recipient property ("To", "Cc", "Bcc", "ReplyTo").
-        :param MailAddressValue: Raw email address string to parse and add.
-        :returns: None - modifies the appropriate address collection.
-        """
-        mail_address = MailAddress()
-        mail_address.parse(MailAddressValue)
-        if PropertyName == "To":
-            self.To.append(mail_address)
-        elif PropertyName == "Cc":
-            self.Cc.append(mail_address)
-        elif PropertyName == "Bcc":
-            self.Bcc.append(mail_address)
-        elif PropertyName == "ReplyTo":
-            self.ReplyTo.append(mail_address)
-        else:
-            raise Exception(f"{PropertyName} is not of type 'MailAddress'")
-
-    def set_content_type(self, ContentTypeValue: str):
-        """
-        [INTERNAL USE ONLY] Parses and sets the Content-Type header for this MIME part.
-
-        This method creates a ContentType object from the header string and assigns it
-        to this message part. Used during EML parsing to process Content-Type headers.
-
-        :param ContentTypeValue: Raw Content-Type header string to parse.
-        :returns: None - sets the ContentType property of this message.
-        """
         self.ContentType = ContentType()
-        self.ContentType.parse(ContentTypeValue)
+        self.ContentDisposition = None
+        self.ContentTransferEncoding = TransferEncodingValue.parse("7bit")
+        self.MimeVersion = ""
+        self.ContentDescription = ""
+        self.ContentID = None
+        self.MessagePartial = None
+        self.ExternalBodyAccess = None
 
-    def set_content_disposition(self, ContentDispositionValue: str):
-        """
-        [INTERNAL USE ONLY] Parses and sets the Content-Disposition header for this MIME part.
+        self.RawSource = bytes()
+        self.RawBody = bytes()
+        self.DecodedBody = bytes()
+        self._DecodedText = ""
+        self.Children = []
+        self.Preamble = ""
+        self.Epilogue = ""
+        self.Diagnostics = []
 
-        This method creates a ContentDisposition object from the header string and assigns it
-        to this message part. Used during EML parsing to process Content-Disposition headers.
+    @property
+    def IsMultiPart(self) -> bool:
+        return bool(self.Children) or self.ContentType.MediaType.startswith("multipart/")
 
-        :param ContentDispositionValue: Raw Content-Disposition header string to parse.
-        :returns: None - sets the ContentDisposition property of this message.
-        """
-        self.ContentDisposition = ContentDisposition()
-        self.ContentDisposition.parse(ContentDispositionValue)
+    @property
+    def Body(self) -> str:
+        if not self.Children:
+            return self._DecodedText
+        candidates = [child.Body for child in self.Children if child.Body]
+        if not candidates:
+            return ""
+        if self.ContentType.MediaType == "multipart/alternative":
+            return candidates[-1]
+        return candidates[0]
 
-    def set_content_transfer_encoding(self, ContentTransferEncodingValue: str):
-        """
-        [INTERNAL USE ONLY] Parses and sets the Content-Transfer-Encoding for this MIME part.
+    @property
+    def TextBody(self) -> str:
+        if not self.Children:
+            return self._DecodedText if self.ContentType.MediaType == "text/plain" else ""
+        return next((child.TextBody for child in self.Children if child.TextBody), "")
 
-        This method converts the header string to the appropriate TransferEncoding enum value.
-        Defaults to 7-bit encoding for unrecognized values. Used during EML parsing.
+    @property
+    def HtmlBody(self) -> str:
+        if not self.Children:
+            return self._DecodedText if self.ContentType.MediaType == "text/html" else ""
+        return next((child.HtmlBody for child in self.Children if child.HtmlBody), "")
 
-        :param ContentTransferEncodingValue: Raw Content-Transfer-Encoding header string.
-        :returns: None - sets the ContentTransferEncoding property of this message.
-        """
-        ContentTransferEncodingValue = ContentTransferEncodingValue.lower()
-        if ContentTransferEncodingValue == "8bit":
-            self.ContentTransferEncoding = TransferEncoding.EIGHT_BIT
-        elif ContentTransferEncodingValue == "base64":
-            self.ContentTransferEncoding = TransferEncoding.BASE64
-        elif ContentTransferEncodingValue == "quoted-printable":
-            self.ContentTransferEncoding = TransferEncoding.QUOTED_PRINTABLE
-        else:
-            self.ContentTransferEncoding = TransferEncoding.SEVEN_BIT
+    @property
+    def Name(self) -> str:
+        if self.ContentDisposition and self.ContentDisposition.FileName:
+            return self.ContentDisposition.FileName
+        return self.ContentType.Name
 
-    def set_entity_type(self):
-        """
-        [INTERNAL USE ONLY] Determines and sets the entity type based on the Content-Type.
+    @property
+    def IsInline(self) -> bool:
+        return bool(self.ContentDisposition and self.ContentDisposition.DispositionType == "inline")
 
-        This method classifies the MIME part as ATTACHMENT (binary files), TEXT (readable content),
-        or MIME_PART (multipart container) based on the media type. Used during parsing to
-        facilitate proper content handling.
+    @property
+    def IsAttachment(self) -> bool:
+        disposition = self.ContentDisposition.DispositionType if self.ContentDisposition else ""
+        return disposition == "attachment" or (bool(self.Name) and disposition != "inline")
 
-        :returns: None - sets the EntityType property of this message.
-        """
-        media_type = self.ContentType.MediaType.lower()
-        if media_type.startswith("application") or media_type.startswith("image"):
-            self.EntityType = EntityType.ATTACHMENT
-        elif media_type.startswith("multipart"):
-            self.EntityType = EntityType.MIME_PART
-        else:
-            self.EntityType = EntityType.TEXT
+    @property
+    def Attachments(self) -> tuple["RxMailMessage", ...]:
+        attachments = [self] if self.IsAttachment else []
+        for child in self.Children:
+            attachments.extend(child.Attachments)
+        return tuple(attachments)
+
+    @property
+    def InlineResources(self) -> tuple["RxMailMessage", ...]:
+        resources = [self] if self.IsInline else []
+        for child in self.Children:
+            resources.extend(child.InlineResources)
+        return tuple(resources)
 
     def export_as_json(self) -> str:
-        """
-        Converts the email message to a JSON string representation.
+        """Serialize the sole version 2 structured schema."""
+        return json.dumps(self.to_dict(), ensure_ascii=False)
 
-        This method serializes key message properties into a JSON format suitable for
-        logging, debugging, or data exchange. Includes essential headers, metadata,
-        and attachment count but excludes binary content and body text.
-
-        :returns: JSON string containing structured representation of the message.
-        """
-        final_object = dict()
-        final_object.update({
-            "From": str(self.From),
-            "Subject": self.Subject,
-            "Message-ID": self.MessageID,
-            "IsMultiPart": self.IsMultiPart,
-            "Mime-Version": self.MimeVersion,
-            "Date": self.Date,
-            "Headers": self.Headers,
-            "Content-Type": str(self.ContentType),
-            "To": str(self.To),
-            "Cc": str(self.Cc),
-            "Bcc": str(self.Bcc),
-            "Reply-To": str(self.ReplyTo),
-            "Attachment-Count": self.Attachments.length()
-        })
-
-        return json.dumps(final_object)
+    def to_dict(self) -> dict:
+        """Return the complete structured version 2 schema."""
+        return {
+            "schema_version": 2,
+            "headers": self.Headers.to_list(),
+            "from": self.From.to_dict(),
+            "sender": self.Sender.to_dict(),
+            "reply_to": self.ReplyTo.to_dict(),
+            "to": self.To.to_dict(),
+            "cc": self.Cc.to_dict(),
+            "bcc": self.Bcc.to_dict(),
+            "subject": self.Subject,
+            "date": self.Date.to_dict() if self.Date else None,
+            "message_id": self.MessageID.to_dict() if self.MessageID else None,
+            "in_reply_to": [value.to_dict() for value in self.InReplyTo],
+            "references": [value.to_dict() for value in self.References],
+            "comments": list(self.Comments),
+            "keywords": list(self.Keywords),
+            "return_path": self.ReturnPath,
+            "received": list(self.Received),
+            "resent_blocks": [block.to_dict() for block in self.ResentBlocks],
+            "trace_blocks": [block.to_dict() for block in self.TraceBlocks],
+            "mime_version": self.MimeVersion,
+            "content_type": self.ContentType.to_dict(),
+            "content_disposition": self.ContentDisposition.to_dict() if self.ContentDisposition else None,
+            "content_transfer_encoding": self.ContentTransferEncoding.to_dict(),
+            "content_id": self.ContentID.to_dict() if self.ContentID else None,
+            "content_description": self.ContentDescription,
+            "message_partial": self.MessagePartial.to_dict() if self.MessagePartial else None,
+            "external_body_access": self.ExternalBodyAccess.to_dict() if self.ExternalBodyAccess else None,
+            "is_multipart": self.IsMultiPart,
+            "is_attachment": self.IsAttachment,
+            "is_inline": self.IsInline,
+            "name": self.Name,
+            "preamble": self.Preamble,
+            "epilogue": self.Epilogue,
+            "body": self.Body,
+            "text_body": self.TextBody,
+            "html_body": self.HtmlBody,
+            "children": [child.to_dict() for child in self.Children],
+            "diagnostics": [item.to_dict() for item in self.Diagnostics],
+        }
 
     def save_attachments(self, TargetFolderPath: str):
-        """
-        Saves all email attachments to the specified directory.
-
-        This method extracts and writes all attachment files to disk using their
-        original filenames. If the target directory doesn't exist, an exception is raised.
-        Existing files with the same names will be overwritten.
-
-        :param TargetFolderPath: Directory path where attachment files should be saved.
-        :returns: None - creates files in the specified directory.
-        :raises: FolderNotAvailableError if the target directory doesn't exist.
-        """
-        if os.path.exists(TargetFolderPath):
-            for attachment in self.Attachments.export_as_list():
-                TargetFilePath = os.path.join(TargetFolderPath, attachment.Name)
-                with open(TargetFilePath, "wb") as my_file:
-                    my_file.write(attachment.Contents)
-        else:
+        """Save all attachment MIME parts to an existing directory."""
+        if not os.path.isdir(TargetFolderPath):
             raise FolderNotAvailableError(TargetFolderPath)
+        for attachment in self.Attachments:
+            safe_name = os.path.basename(attachment.Name)
+            if safe_name in ("", ".", ".."):
+                safe_name = "attachment"
+            payload = attachment.DecodedBody
+            if not payload and attachment.Children:
+                payload = attachment.Children[0].RawSource
+            with open(os.path.join(TargetFolderPath, safe_name), "wb") as target:
+                target.write(payload)

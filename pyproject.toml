@@ -21,6 +21,22 @@ requires-python = ">=3.12"
 [tool.setuptools]
 packages = ["EMLMailReader"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--tb=short", "--strict-markers"]
+log_cli = false
+markers = [
+    "functional: tests that parse real EML files or exercise filesystem behavior"
+]
+
+[tool.coverage.run]
+source = ["EMLMailReader"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 95
+
 [project.urls]
 Homepage = "https://github.com/codadel/EMLMailReader"
 Issues = "https://github.com/codadel/EMLMailReader/issues"

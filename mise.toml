@@ -9,9 +9,25 @@ description = "Install local package and project requirements"
 run = "python -m pip install --upgrade pip && python -m pip install -e . -r requirements.txt"
 
 [tasks.test]
-description = "Run the unittest suite"
-run = "python -m unittest discover tests -v"
+description = "Run the pytest suite"
+run = "pytest"
+
+[tasks.unit]
+description = "Run in-memory unit tests without filesystem handling"
+run = "pytest tests/unit"
+
+[tasks.functional]
+description = "Run real EML parsing and filesystem functional tests"
+run = "pytest tests/functional"
+
+[tasks.test-verbose]
+description = "Run the pytest suite with individual test names"
+run = "pytest -vv"
 
 [tasks.coverage]
-description = "Run tests with coverage"
-run = "coverage run --source=EMLMailReader -m unittest discover tests && coverage report"
+description = "Run tests with branch coverage"
+run = "pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-fail-under=95"
+
+[tasks.coverage-html]
+description = "Run tests and generate terminal and HTML coverage reports"
+run = "pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-report=html --cov-fail-under=95"

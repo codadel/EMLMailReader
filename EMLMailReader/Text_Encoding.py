@@ -1,6 +1,6 @@
 from quopri import decodestring
 from base64 import b64decode
-from .Custom_Exceptions import InvalidEncodingError
+from email.header import decode_header as stdlib_decode_header
 
 
 class TextEncoding:
@@ -64,7 +64,7 @@ class TextEncoding:
         return decoded_file_contents
 
     @staticmethod
-    def decode_header(encoded_string: str) -> str:
+    def decode_header(encoded_string: str | None, errors: str = "replace") -> str:
         """
         Decodes RFC 2047 encoded email headers to readable Unicode text.
 
@@ -74,20 +74,14 @@ class TextEncoding:
 
         :param encoded_string: Potentially encoded header string to decode.
         :returns: Decoded Unicode string, or original string if no encoding detected.
-        :raises: InvalidEncodingError if an unsupported encoding method is encountered.
+        Invalid bytes are handled according to the ``errors`` argument.
         """
-        encoded_string = encoded_string.strip()
-        if encoded_string.startswith("=?"):
-            encoded_string = encoded_string[2:]
-            encoded_string = encoded_string[0: len(encoded_string) - 2]
-            string_parts = encoded_string.split("?")
-            if (string_parts[1]).strip().upper() == "Q":
-                decoded_string = TextEncoding.decode_quoted_printable_string(string_parts[2], string_parts[0], True)
-            elif (string_parts[1]).strip().upper() == "B":
-                decoded_string = TextEncoding.decode_base64_string(string_parts[2], string_parts[0])
+        if encoded_string is None:
+            return ""
+        fragments = []
+        for value, charset in stdlib_decode_header(encoded_string):
+            if isinstance(value, bytes):
+                fragments.append(value.decode(charset or "ascii", errors))
             else:
-                raise InvalidEncodingError(encoded_string)
-        else:
-            decoded_string = encoded_string
-
-        return decoded_string
+                fragments.append(value)
+        return "".join(fragments)

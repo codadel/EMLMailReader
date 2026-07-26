@@ -71,10 +71,18 @@ class TestContentType(unittest.TestCase):
         :returns: Does not return a value.
         """
         self.content_type.parse("application/octet-stream; name=52086119535.pdf; charset=utf-8")
-        self.assertEqual(str(self.content_type), "application/octet-stream; charset=utf-8; name=52086119535.pdf", "Stringified value does not match the expected content type value.")
+        self.assertEqual(
+            str(self.content_type),
+            'application/octet-stream; name="52086119535.pdf"; charset="utf-8"',
+            "Stringified value does not match the normalized content type value.",
+        )
         self.content_type = ContentType()
         self.content_type.parse("multipart/form-data; boundary=something")
-        self.assertEqual(str(self.content_type), "multipart/form-data; charset=us-ascii", "Stringified value does not match the expected content type value.")
+        self.assertEqual(
+            str(self.content_type),
+            'multipart/form-data; boundary="something"',
+            "Stringified value does not match the normalized content type value.",
+        )
 
 
 if __name__ == "__main__":

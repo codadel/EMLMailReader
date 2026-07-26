@@ -1,148 +1,148 @@
 # EMLMailReader
 
-## Overview
+EMLMailReader parses Internet message files into a structured message and MIME
+tree. It preserves original bytes and headers, decodes text and transfer
+encodings, exposes addresses and message identifiers as typed values, and
+records parser diagnostics without discarding recoverable mail.
 
-EMLMailReader is a comprehensive Python library designed to parse and extract information from EML (Email Message Format) files. The library provides a robust solution for reading email files, extracting headers, body content, attachments, and handling complex MIME structures with support for various encoding formats.
+The current API uses one canonical model. Attachments and inline resources are
+`RxMailMessage` MIME parts; there are no separate attachment or collection
+classes.
 
-## Key Features
+## Requirements and installation
 
-- **Complete EML Parsing**: Parse standard EML files with full MIME support
-- **Multi-part Message Support**: Handle complex email structures with nested MIME parts
-- **Attachment Extraction**: Extract and save file attachments with proper metadata
-- **Encoding Support**: Decode Base64, Quoted-Printable, and other transfer encodings
-- **Address Parsing**: Parse and manage email addresses with display names
-- **Logging Integration**: Comprehensive logging for debugging and monitoring
-- **Exception Handling**: Custom exceptions for specific error scenarios
-
-## Quick Start
-
-### Installation
+- Python 3.12 or newer
+- No runtime dependencies outside the Python standard library
 
 ```bash
-pip install emlmailreader
+python -m pip install emlmailreader
 ```
 
-### Basic Usage
+## Parse an EML file
 
 ```python
-from EMLMailReader import MailReader, LoggingMode
+from EMLMailReader import MailReader
 
-# Initialize the mail reader
-reader = MailReader(logging_mode=LoggingMode.CONSOLE)
+message = MailReader().get_email("message.eml")
+if message is None:
+    raise RuntimeError("The file was missing, empty, or could not be read")
 
-# Parse an EML file
-message = reader.get_email("/path/to/email.eml")
-
-if message:
-    # Access basic email information
-    print(f"From: {message.From}")
-    print(f"Subject: {message.Subject}")
-    print(f"Date: {message.Date}")
-
-    # Access recipients
-    print(f"To: {message.To}")
-    print(f"Cc: {message.Cc}")
-
-    # Access body content
-    print(f"Body: {message.Body}")
-
-    # Check for attachments
-    if message.Attachments.length() > 0:
-        print(f"Found {message.Attachments.length()} attachments")
-
-        # Save attachments to a folder
-        message.save_attachments("/path/to/output/folder")
-
-    # Export message as JSON
-    json_data = message.export_as_json()
-    print(json_data)
+print(message.Subject)
+print([mailbox.Email for mailbox in message.From.Mailboxes])
+print(message.TextBody)
+print(message.HtmlBody)
 ```
 
-### Advanced Usage with Logging
+`get_email()` is the filesystem entry point. It returns `None` for missing,
+empty, or unreadable files. In strict parsing mode, syntax errors raise
+`StandardsComplianceError`.
+
+## Parse in-memory input
 
 ```python
-from EMLMailReader import MailReader, LoggingMode
-import os
+from io import BytesIO
 
-# Create a logs directory
-logs_dir = "/path/to/logs"
-os.makedirs(logs_dir, exist_ok=True)
-
-# Initialize reader with file logging
-reader = MailReader(
-    logging_mode=LoggingMode.FILE,
-    TargetLoggingFolder=logs_dir
-)
-
-# Parse multiple EML files
-eml_files = ["/path/to/email1.eml", "/path/to/email2.eml"]
-
-for eml_file in eml_files:
-    try:
-        message = reader.get_email(eml_file)
-        if message:
-            print(f"Successfully parsed: {eml_file}")
-            print(f"Subject: {message.Subject}")
-    except Exception as e:
-        print(f"Failed to parse {eml_file}: {e}")
-```
-
-## Architecture
-
-The library is organized into several key components:
-
-1. **Core Parser** (`MailReader`): Main entry point for parsing EML files
-2. **Message Representation** (`RxMailMessage`): Complete email message structure
-3. **Address Handling** (`MailAddress`, `MailAddressCollection`): Email address parsing and management
-4. **Attachment Support** (`MailAttachment`, `MailAttachmentCollection`): File attachment handling
-5. **MIME Headers** (`ContentType`, `ContentDisposition`): MIME header parsing
-6. **Encoding Support** (`TextEncoding`): Text and binary content decoding
-7. **Utilities** (`Logger`, Enumerations, Exceptions): Supporting infrastructure
-
-## Library Classes
-
-### Core Classes
-- [**MailReader**](MailReader.md) - Primary EML file parser
-- [**RxMailMessage**](RxMailMessage.md) - Complete email message representation
-
-### Address and Attachment Classes
-- [**MailAddress**](MailAddress.md) - Individual email address representation
-- [**MailAddressCollection**](MailAddressCollection.md) - Collection of email addresses
-- [**MailAttachment**](MailAttachment.md) - Individual email attachment
-- [**MailAttachmentCollection**](MailAttachmentCollection.md) - Collection of attachments
-
-### MIME Header Classes
-- [**ContentType**](ContentType.md) - MIME Content-Type header handling
-- [**ContentDisposition**](ContentDisposition.md) - MIME Content-Disposition header handling
-
-### Utility Classes
-- [**TextEncoding**](TextEncoding.md) - Text encoding and decoding utilities
-- [**Logger**](Logger.md) - Logging configuration and management
-
-### Supporting Classes
-- [**Enumerations**](Enumerations.md) - Library enumerations and constants
-- [**Exceptions**](Exceptions.md) - Library-specific exception classes
-
-## Error Handling
-
-The library provides comprehensive error handling through custom exceptions:
-
-```python
-from EMLMailReader import MailReader, FileMissingError, InvalidEncodingError
+from EMLMailReader import MailReader
 
 reader = MailReader()
 
-try:
-    message = reader.get_email("/path/to/email.eml")
-except FileMissingError as e:
-    print(f"File not found: {e}")
-except InvalidEncodingError as e:
-    print(f"Encoding error: {e}")
-except Exception as e:
-    print(f"General error: {e}")
+from_bytes = reader.parse_bytes(
+    b"Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n"
+    b"From: alice@example.com\r\n"
+    b"Subject: Example\r\n\r\n"
+    b"Hello"
+)
+from_text = reader.parse_string(
+    "Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n"
+    "From: alice@example.com\r\n\r\nHello"
+)
+from_stream = reader.parse_stream(BytesIO(from_bytes.RawSource))
 ```
 
-## Requirements
+Use `parse_bytes()` when wire-byte preservation matters. `parse_string()`
+encodes the input as UTF-8 by default, and `parse_stream()` accepts a binary or
+text stream at its current position.
 
-- Python 3.12+
-- Standard library modules: `os`, `json`, `logging`, `datetime`, `base64`, `quopri`, `enum`, `copy`
+## Work with the MIME tree
+
+Each node in `message.Children` is another `RxMailMessage`.
+
+```python
+def walk(part):
+    yield part
+    for child in part.Children:
+        yield from walk(child)
+
+for part in walk(message):
+    print(part.ContentType.MediaType, part.Name)
+
+for attachment in message.Attachments:
+    print(attachment.Name, len(attachment.DecodedBody))
+```
+
+`Attachments` and `InlineResources` are recursive, immutable tuple views over
+the same MIME nodes already present in `Children`.
+
+## Inspect diagnostics
+
+Receiver modes return recoverable input and attach diagnostics to the affected
+MIME node.
+
+```python
+for diagnostic in message.Diagnostics:
+    print(diagnostic.severity.value, diagnostic.code, diagnostic.message)
+```
+
+Diagnostics on nested parts are stored on those child nodes. See
+[Structured types](StructuredTypes.md) for strict mode, resource limits, and
+diagnostic metadata.
+
+## Save attachments
+
+```python
+message.save_attachments("/existing/output/directory")
+```
+
+The destination directory must already exist. Saved names are reduced to their
+basename to prevent path traversal. See [RxMailMessage](RxMailMessage.md) for
+collision and fallback-name behavior.
+
+## API reference
+
+### Parsing and message model
+
+- [MailReader](MailReader.md)
+- [RxMailMessage](RxMailMessage.md)
+- [Structured types](StructuredTypes.md)
+
+### Addresses and MIME headers
+
+- [MailAddress](MailAddress.md)
+- [AddressList](AddressList.md)
+- [ContentType](ContentType.md)
+- [ContentDisposition](ContentDisposition.md)
+
+### Utilities
+
+- [TextEncoding](TextEncoding.md)
+- [Logger](Logger.md)
+- [Enumerations](Enumerations.md)
+- [Exceptions](Exceptions.md)
+
+## Public package imports
+
+The documented classes are exported from `EMLMailReader`, except
+`LoggingLevel`, which is available from `EMLMailReader.Enumerations`.
+
+```python
+from EMLMailReader import (
+    AddressList,
+    ContentDisposition,
+    ContentType,
+    MailAddress,
+    MailReader,
+    ParserLimits,
+    ParsingMode,
+    RxMailMessage,
+)
+```

@@ -1,3 +1,7 @@
+from email.message import Message
+from email.policy import default
+
+
 class ContentType:
     """
     A class to represent the Content-Type header of a MIME entity.
@@ -15,8 +19,12 @@ class ContentType:
         """Delimiter string used to separate parts in multipart MIME entities."""
         self.Name = str()
         """Suggested name for the content, often used for attachments."""
+        self.Parameters = dict()
+        """All decoded MIME parameters, including RFC 2231 extensions."""
+        self.RawValue = str()
+        self.IsExplicit = False
 
-    def parse(self, ContentTypeString: str = "text/plain; charset=us-ascii"):
+    def parse(self, ContentTypeString: str | None = None, *, effective_media_type: str | None = None):
         """
         Parses a Content-Type header string and populates the object's properties.
 
@@ -27,34 +35,27 @@ class ContentType:
         :param ContentTypeString: The Content-Type header value to parse.
         :returns: None - modifies the object's properties in place.
         """
-        ContentTypeString = ContentTypeString.strip()
-        if ContentTypeString.find(";") != -1:
-            ContentTypeValues = ContentTypeString.split(";")
-            self.MediaType = ContentTypeValues[0]
-            for index in range(1, len(ContentTypeValues)):
-                Current_Value = ContentTypeValues[index]
-                index_one = Current_Value.find("\"")
-                if index_one == -1:
-                    key = Current_Value.split("=")[0]
-                    value = Current_Value.split("=")[1]
-                else:
-                    key = Current_Value[0:index_one]
-                    key = key.strip("=")
-                    Current_Value = Current_Value.replace(key + "=\"", "")
-                    index_two = Current_Value.find("\"")
-                    value = Current_Value[0:index_two]
+        raw_value = (ContentTypeString or "").strip()
+        value = raw_value or (effective_media_type or "text/plain")
+        self.RawValue = raw_value
+        self.IsExplicit = bool(raw_value)
+        message = Message(policy=default)
+        message["Content-Type"] = value
+        self.MediaType = message.get_content_type().lower()
+        parameters = message.get_params(header="content-type", failobj=[])[1:]
+        self.Parameters = {str(key).lower(): str(parameter) for key, parameter in parameters}
+        self.Charset = (message.get_content_charset() or "us-ascii").lower()
+        self.Boundary = message.get_boundary() or ""
+        self.Name = self.Parameters.get("name", "")
 
-                if key.lower().strip() == "charset":
-                    self.Charset = value.strip().lower()
-                elif key.lower().strip() == "boundary":
-                    self.Boundary = value.strip()
-                elif key.lower().strip() == "name":
-                    self.Name = value.strip()
-                else:
-                    continue
-        else:
-            self.MediaType = "text/plain"
-            self.Charset = "us-ascii"
+    def get_parameter(self, name: str, default=None):
+        return self.Parameters.get(name.lower(), default)
+
+    def to_header_value(self) -> str:
+        """Return an RFC-compliant value including all parameters."""
+        message = Message(policy=default)
+        message["Content-Type"] = self.RawValue or self.MediaType
+        return str(message["Content-Type"])
 
     def __str__(self) -> str:
         """
@@ -65,9 +66,15 @@ class ContentType:
 
         :returns: Properly formatted Content-Type header string.
         """
-        return_string = self.MediaType
-        if self.Charset != str():
-            return_string = f"{return_string}; charset={self.Charset}"
-        if self.Name != str():
-            return_string = f"{return_string}; name={self.Name}"
-        return return_string
+        return self.to_header_value()
+
+    def to_dict(self) -> dict:
+        return {
+            "media_type": self.MediaType,
+            "charset": self.Charset,
+            "boundary": self.Boundary,
+            "name": self.Name,
+            "parameters": dict(self.Parameters),
+            "raw_value": self.RawValue,
+            "is_explicit": self.IsExplicit,
+        }
