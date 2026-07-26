@@ -26,9 +26,7 @@ flattened diagnostic report, not only errors.
 from EMLMailReader import MailReader, ParsingMode, StandardsComplianceError
 
 try:
-    message = MailReader(
-        parsing_mode=ParsingMode.STRICT
-    ).parse_bytes(source)
+    message = MailReader(parsing_mode=ParsingMode.STRICT).parse_bytes(source)
 except StandardsComplianceError as error:
     for diagnostic in error.diagnostics:
         print(

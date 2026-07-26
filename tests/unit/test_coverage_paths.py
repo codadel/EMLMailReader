@@ -1,4 +1,6 @@
 import unittest
+from email.message import Message
+from typing import cast
 from unittest.mock import patch
 
 from EMLMailReader import (
@@ -7,8 +9,8 @@ from EMLMailReader import (
     HeaderCollection,
     HeaderField,
     MailReader,
-    ParseDiagnostic,
     ParsedDateTime,
+    ParseDiagnostic,
     ParsedMessageID,
     ParserLimits,
     ParsingMode,
@@ -21,12 +23,9 @@ from EMLMailReader.RFC_Parser import StandardsParser
 
 
 class TestVersionTwoCoveragePaths(unittest.TestCase):
-    REQUIRED = (
-        b"Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n"
-        b"From: alice@example.com\r\n"
-    )
+    REQUIRED = b"Date: Fri, 21 Nov 1997 09:55:06 -0600\r\nFrom: alice@example.com\r\n"
 
-    def test_header_collection_protocol_and_raw_lookup(self):
+    def test_header_collection_protocol_and_raw_lookup(self) -> None:
         field = HeaderField(
             name="X-Test",
             raw_name="X-Test",
@@ -46,8 +45,10 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
         self.assertEqual(headers.occurrences("X-TEST"), [field])
         self.assertEqual(headers.to_list()[0]["syntax_status"], "current")
 
-    def test_structured_values_export(self):
-        message_id = ParsedMessageID("<a@example.com>", "a@example.com", "a", "example.com")
+    def test_structured_values_export(self) -> None:
+        message_id = ParsedMessageID(
+            "<a@example.com>", "a@example.com", "a", "example.com"
+        )
         self.assertEqual(message_id.to_dict()["left"], "a")
 
         parsed_date = ParsedDateTime("raw", None, False)
@@ -64,10 +65,12 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
         transfer = TransferEncodingValue.parse("")
         self.assertEqual(transfer.kind, TransferEncoding.SEVEN_BIT)
 
-    def test_invalid_mode_falls_back_to_modern(self):
-        self.assertEqual(StandardsParser("unsupported").parsing_mode, ParsingMode.MODERN)
+    def test_invalid_mode_falls_back_to_modern(self) -> None:
+        self.assertEqual(
+            StandardsParser("unsupported").parsing_mode, ParsingMode.MODERN
+        )
 
-    def test_unknown_charset_and_invalid_payload_are_diagnostic(self):
+    def test_unknown_charset_and_invalid_payload_are_diagnostic(self) -> None:
         message = MailReader().parse_bytes(
             self.REQUIRED
             + b"MIME-Version: 1.0\r\n"
@@ -77,13 +80,15 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
         self.assertEqual(message.Body, "�")
         self.assertIn("InvalidCharsetData", {item.code for item in message.Diagnostics})
 
-    def test_unsupported_mime_version_is_warning(self):
+    def test_unsupported_mime_version_is_warning(self) -> None:
         message = MailReader().parse_bytes(
             self.REQUIRED + b"MIME-Version: 2.0\r\nContent-Type: text/plain\r\n\r\nbody"
         )
-        self.assertIn("UnsupportedMIMEVersion", {item.code for item in message.Diagnostics})
+        self.assertIn(
+            "UnsupportedMIMEVersion", {item.code for item in message.Diagnostics}
+        )
 
-    def test_message_global_decode_error_is_reported(self):
+    def test_message_global_decode_error_is_reported(self) -> None:
         message = MailReader().parse_bytes(
             self.REQUIRED
             + b"MIME-Version: 1.0\r\n"
@@ -93,7 +98,7 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
         )
         self.assertTrue(message.Children or message.Diagnostics)
 
-    def test_message_global_decoder_exception_is_diagnostic(self):
+    def test_message_global_decoder_exception_is_diagnostic(self) -> None:
         source = (
             self.REQUIRED
             + b"MIME-Version: 1.0\r\n"
@@ -111,11 +116,11 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
             {item.code for item in message.Diagnostics},
         )
 
-    def test_invalid_address_list_is_retained_as_a_diagnostic(self):
+    def test_invalid_address_list_is_retained_as_a_diagnostic(self) -> None:
         real_address_list = AddressList
         failed = False
 
-        def parse_address_list(raw_value=""):
+        def parse_address_list(raw_value: str = "") -> AddressList:
             nonlocal failed
             if raw_value and not failed:
                 failed = True
@@ -131,13 +136,15 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
             )
         self.assertIn("InvalidAddressList", {item.code for item in message.Diagnostics})
 
-    def test_root_part_count_limit_is_diagnostic(self):
+    def test_root_part_count_limit_is_diagnostic(self) -> None:
         message = MailReader(limits=ParserLimits(max_parts=0)).parse_bytes(
             self.REQUIRED + b"\r\nbody"
         )
-        self.assertIn("MimePartLimitExceeded", {item.code for item in message.Diagnostics})
+        self.assertIn(
+            "MimePartLimitExceeded", {item.code for item in message.Diagnostics}
+        )
 
-    def test_payload_and_header_resource_limits_are_diagnostic(self):
+    def test_payload_and_header_resource_limits_are_diagnostic(self) -> None:
         limits = ParserLimits(
             max_header_bytes=10,
             max_header_count=1,
@@ -149,26 +156,29 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
         self.assertIn("HeaderCountLimitExceeded", codes)
         self.assertIn("DecodedPartLimitExceeded", codes)
 
-    def test_leaf_payload_none_uses_string_fallback(self):
+    def test_leaf_payload_none_uses_string_fallback(self) -> None:
         class PayloadWithoutDecodedBytes:
             @staticmethod
-            def get_payload(decode=False):
+            def get_payload(decode: bool = False) -> str | None:
                 return None if decode else "fallback"
 
             @staticmethod
-            def get_content_type():
+            def get_content_type() -> str:
                 return "application/octet-stream"
 
         result = RxMailMessage()
         parser = StandardsParser(limits=ParserLimits(max_decoded_part_bytes=2))
-        parser._populate_leaf_body(result, PayloadWithoutDecodedBytes())
+        parser._populate_leaf_body(
+            result,
+            cast(Message, PayloadWithoutDecodedBytes()),
+        )
         self.assertEqual(result.DecodedBody, b"fallback")
         self.assertIn(
             "DecodedPartLimitExceeded",
             {item.code for item in result.Diagnostics},
         )
 
-    def test_invalid_message_partial_parameters_are_diagnostic(self):
+    def test_invalid_message_partial_parameters_are_diagnostic(self) -> None:
         message = MailReader().parse_bytes(
             self.REQUIRED
             + b"MIME-Version: 1.0\r\n"
@@ -179,7 +189,7 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
             {item.code for item in message.Diagnostics},
         )
 
-    def test_resent_and_trace_block_edge_cases(self):
+    def test_resent_and_trace_block_edge_cases(self) -> None:
         message = MailReader().parse_bytes(
             self.REQUIRED
             + b"Resent-Date: Sat, 22 Nov 1997 10:00:00 -0600\r\n"
@@ -199,9 +209,11 @@ class TestVersionTwoCoveragePaths(unittest.TestCase):
         self.assertEqual(len(message.ResentBlocks), 2)
         self.assertEqual(len(message.TraceBlocks), 2)
 
-    def test_logger_receives_non_error_diagnostics_as_info(self):
+    def test_logger_receives_non_error_diagnostics_as_info(self) -> None:
         with patch("EMLMailReader.Mail_Reader.Logger.logentry") as logentry:
-            MailReader().parse_bytes(self.REQUIRED + b"Content-Type: text/plain\r\n\r\nbody")
+            MailReader().parse_bytes(
+                self.REQUIRED + b"Content-Type: text/plain\r\n\r\nbody"
+            )
         self.assertTrue(logentry.called)
 
 

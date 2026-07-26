@@ -4,29 +4,21 @@ This document provides instructions on how to run the test suite for the EMLMail
 
 ## Prerequisites
 
-The recommended local workflow uses [mise](https://mise.jdx.dev/) with the
-project's `mise.toml`. Mise will install/use Python 3.12 and create a local
-`.venv` automatically.
+Prepare the Python environment, editable package, development dependencies,
+and pre-commit hooks by following [Local workspace setup](SETUP.md).
 
-Start from the project root:
-
-```bash
-cd /path/to/EMLMailReader
-```
-
-Install the local package and project test requirements:
-
-```bash
-mise run setup
-```
-
-This installs the package in editable mode and installs `requirements.txt`.
 The test toolchain uses:
 
 - `pytest` as the test runner. It discovers the existing `unittest.TestCase`
   suite without requiring a rewrite.
 - `pytest-cov` as the Coverage.py integration.
 - `coverage` for persisted `.coverage` data and terminal or HTML reports.
+- Ruff for non-mutating formatting and lint checks.
+- MyPy for strict type checking of the library and tests.
+- pre-commit for check-only, fail-fast commit validation.
+
+See [Code quality](QUALITY.md) for manual formatting and lint-fix commands,
+pre-commit behavior, and the complete quality workflow.
 
 ## Running All Tests
 
@@ -110,15 +102,16 @@ coverage html
 
 ## Continuous Integration
 
-For CI/CD pipelines with mise available, use:
+Run every non-mutating quality check locally with:
 
 ```bash
-mise run setup
-mise run test
+mise run quality
+mise run pre-commit
 ```
 
-The release workflow invokes the same pytest configuration with:
+The pull-request and release workflows run formatting, lint, MyPy, tests, and
+coverage as sequential check-only commands. The first failure terminates the
+job; no CI command changes repository files.
 
-```bash
-python -m pytest
-```
+Functional tests include package-installation checks, such as verifying that
+the PEP 561 `py.typed` marker is shipped.

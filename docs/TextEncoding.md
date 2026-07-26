@@ -18,9 +18,7 @@ Decodes and joins RFC 2047 encoded-word fragments.
 ```python
 from EMLMailReader import TextEncoding
 
-subject = TextEncoding.decode_header(
-    "=?utf-8?b?SGVsbG8g4pyT?="
-)
+subject = TextEncoding.decode_header("=?utf-8?b?SGVsbG8g4pyT?=")
 assert subject == "Hello ✓"
 assert TextEncoding.decode_header(None) == ""
 ```

@@ -26,6 +26,7 @@ RFC 2183, RFC 2231, and internationalized headers from RFC 6532.
 - Choose modern, lenient, or strict parsing behavior
 - Apply configurable size, header, MIME-depth, part-count, and decoded-body limits
 - Export the complete canonical message schema as a dictionary or JSON
+- Publish inline type information for MyPy and other PEP 561-aware tools
 
 ## Requirements and installation
 
@@ -76,9 +77,7 @@ from_bytes = reader.parse_bytes(
     b"Hello"
 )
 from_text = reader.parse_string(
-    "From: alice@example.com\r\n"
-    "Subject: UTF-8 example – café\r\n\r\n"
-    "Hello"
+    "From: alice@example.com\r\nSubject: UTF-8 example – café\r\n\r\nHello"
 )
 from_stream = reader.parse_stream(BytesIO(from_bytes.RawSource))
 ```
@@ -199,39 +198,6 @@ file_reader = MailReader(
     logging_mode=LoggingMode.FILE,
     TargetLoggingFolder="/existing/log/directory",
 )
-```
-
-## Development and testing
-
-The test suite uses `pytest` and keeps unit and functional responsibilities
-separate:
-
-- `tests/unit/` uses hard-coded, in-memory fixtures and performs no file handling.
-- `tests/functional/` parses real EML files and exercises filesystem behavior.
-- `tests/functional/assets/` contains EML assets used only by functional tests.
-
-With [mise](https://mise.jdx.dev/) installed:
-
-```bash
-mise run setup
-mise run unit
-mise run functional
-mise run test
-mise run test-verbose
-mise run coverage
-mise run coverage-html
-```
-
-The coverage tasks measure branch coverage for `EMLMailReader` and enforce a
-minimum of 95%.
-
-The equivalent direct commands are:
-
-```bash
-pytest tests/unit
-pytest tests/functional
-pytest
-pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-fail-under=95
 ```
 
 ## Documentation

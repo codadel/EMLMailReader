@@ -115,6 +115,7 @@ def walk(part):
     for child in part.Children:
         yield from walk(child)
 
+
 for part in walk(message):
     print(part.ContentType.MediaType)
 ```

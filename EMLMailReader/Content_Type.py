@@ -2,6 +2,11 @@
 
 from email.message import Message
 from email.policy import default
+from typing import TypeVar
+
+from .Standards import JsonObject
+
+_DefaultT = TypeVar("_DefaultT")
 
 
 class ContentType:
@@ -21,22 +26,27 @@ class ContentType:
         IsExplicit: Whether the source contained a Content-Type field.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the RFC 2045 default ``text/plain; charset=us-ascii``."""
         self.MediaType = "text/plain"
         """The main media type and subtype (e.g., 'text/plain', 'image/jpeg')."""
         self.Charset = "us-ascii"
         """Character encoding used for text content (defaults to US-ASCII per RFC 2045)."""
-        self.Boundary = str()
+        self.Boundary = ""
         """Delimiter string used to separate parts in multipart MIME entities."""
-        self.Name = str()
+        self.Name = ""
         """Suggested name for the content, often used for attachments."""
-        self.Parameters = dict()
+        self.Parameters: dict[str, str] = {}
         """All decoded MIME parameters, including RFC 2231 extensions."""
-        self.RawValue = str()
+        self.RawValue = ""
         self.IsExplicit = False
 
-    def parse(self, ContentTypeString: str | None = None, *, effective_media_type: str | None = None):
+    def parse(
+        self,
+        ContentTypeString: str | None = None,
+        *,
+        effective_media_type: str | None = None,
+    ) -> None:
         """Parse a Content-Type value and replace this instance's metadata.
 
         Args:
@@ -52,12 +62,16 @@ class ContentType:
         message["Content-Type"] = value
         self.MediaType = message.get_content_type().lower()
         parameters = message.get_params(header="content-type", failobj=[])[1:]
-        self.Parameters = {str(key).lower(): str(parameter) for key, parameter in parameters}
+        self.Parameters = {
+            str(key).lower(): str(parameter) for key, parameter in parameters
+        }
         self.Charset = (message.get_content_charset() or "us-ascii").lower()
         self.Boundary = message.get_boundary() or ""
         self.Name = self.Parameters.get("name", "")
 
-    def get_parameter(self, name: str, default=None):
+    def get_parameter(
+        self, name: str, default: _DefaultT | None = None
+    ) -> str | _DefaultT | None:
         """Return a decoded parameter by case-insensitive name."""
         return self.Parameters.get(name.lower(), default)
 
@@ -71,7 +85,7 @@ class ContentType:
         """Return the normalized Content-Type field value."""
         return self.to_header_value()
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible representation of the content type."""
         return {
             "media_type": self.MediaType,

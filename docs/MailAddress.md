@@ -23,7 +23,7 @@ defaults to `False`.
 from EMLMailReader import MailAddress
 
 address = MailAddress()
-address.parse('Alice Example <alice@example.com>')
+address.parse("Alice Example <alice@example.com>")
 
 assert address.DisplayName == "Alice Example"
 assert address.Email == "alice@example.com"

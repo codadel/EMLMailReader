@@ -7,7 +7,6 @@ import pytest
 
 from EMLMailReader import MailReader
 
-
 pytestmark = pytest.mark.functional
 
 REGRESSION_DIRECTORY = Path(__file__).parent / "regressions"
@@ -18,7 +17,7 @@ ISSUE_3_SOURCE_SHA256 = (
 ISSUE_3_BODY = "This email has both body text and an attachment\r\n"
 
 
-def test_issue_3_preserves_body_when_attachment_follows():
+def test_issue_3_preserves_body_when_attachment_follows() -> None:
     """Keep the body when parsing the exact EML reported in GitHub issue #3."""
     source = ISSUE_3_SOURCE.read_bytes()
 
@@ -40,6 +39,5 @@ def test_issue_3_preserves_body_when_attachment_follows():
     assert attachment.ContentType.MediaType == "image/jpeg"
     assert attachment.IsAttachment
     assert not any(
-        diagnostic.severity.value == "error"
-        for diagnostic in message.Diagnostics
+        diagnostic.severity.value == "error" for diagnostic in message.Diagnostics
     )

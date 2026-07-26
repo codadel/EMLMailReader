@@ -26,23 +26,27 @@ relevant to the current task.
 
 ## Read before changing
 
+- [Local workspace setup](ai-docs/SETUP.md): mise installation, workspace
+  bootstrap, validation, and common development commands.
 - [Library implementation](ai-docs/LIBRARY_IMPLEMENTATION.md): architecture,
   standards behavior, canonical data model, parsing contracts, diagnostics,
   MIME handling, and resource limits.
 - [Test instructions](ai-docs/TEST_INSTRUCTIONS.md): unit/functional
   boundaries, pytest commands, mise tasks, and coverage workflow.
+- [Code quality](ai-docs/QUALITY.md): Ruff, MyPy, pre-commit, manual fixes,
+  check-only automation, and CI enforcement.
 - [Release process](ai-docs/RELEASE.md): release authorization, versioning,
   branch, tagging, build, and PyPI publishing rules.
 - [Public documentation](docs/index.md): current user-facing API reference.
-- [README](README.md): installation, primary usage, and development overview.
+- [README](README.md): installation and primary public usage.
 
 ## Required validation
 
 Run the smallest relevant tests while developing. Before handoff, run:
 
 ```bash
-mise run test
-mise run coverage
+mise run quality
+mise run pre-commit
 git diff --check
 ```
 

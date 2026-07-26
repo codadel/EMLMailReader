@@ -5,8 +5,10 @@ This project publishes `emlmailreader` to PyPI from the `release` branch.
 ## Automated Release Flow
 
 1. Merge or push the changes intended for release into the `release` branch.
-2. The `Release to PyPI` GitHub Actions workflow runs the pytest suite.
-3. If tests pass, the workflow increments the patch version in `pyproject.toml`.
+2. The `Release to PyPI` GitHub Actions workflow checks Ruff formatting,
+   Ruff lint rules, strict MyPy analysis, tests, and branch coverage.
+3. If every check passes, the workflow increments the patch version in
+   `pyproject.toml`.
 4. The workflow commits the version bump with a `[skip release]` marker, tags
    it as `vX.Y.Z`, builds the package, and publishes it to PyPI.
 5. After PyPI publishing succeeds, the workflow generates release notes,
@@ -51,8 +53,11 @@ patch component and cannot select a new major version by itself.
 
 Before authorized release work:
 
-1. Run the complete unit and functional suite.
+1. Run the complete check-only quality and pre-commit suites.
 2. Run branch coverage and satisfy the per-module and total thresholds.
 3. Verify `README.md` and `docs/` against the shipped API.
 4. Build and inspect the package distributions.
 5. Confirm the intended semantic version and release branch with the user.
+
+Release validation never applies formatting or lint fixes. A failed check
+terminates the workflow before any version, tag, or publication change.

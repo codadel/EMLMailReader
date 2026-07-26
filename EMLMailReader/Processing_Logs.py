@@ -1,11 +1,11 @@
 """Configuration and routing helpers for parser diagnostic logging."""
 
-import os
-import logging
 import datetime
+import logging
+import os
 
-from .Enumerations import LoggingMode, LoggingLevel
 from .Custom_Exceptions import FolderNotAvailableError
+from .Enumerations import LoggingLevel, LoggingMode
 
 
 class Logger:
@@ -17,7 +17,7 @@ class Logger:
     """
 
     @staticmethod
-    def set_configuration(logging_mode: LoggingMode, target_folder: str = str()) -> str:
+    def set_configuration(logging_mode: LoggingMode, target_folder: str = "") -> str:
         """Configure console, file, or disabled parser logging.
 
         Args:
@@ -30,7 +30,7 @@ class Logger:
         Raises:
             FolderNotAvailableError: If file mode has no usable target directory.
         """
-        complete_file_path = str()
+        complete_file_path = ""
         if logging_mode == LoggingMode.CONSOLE:
             logging.basicConfig(
                 level=logging.DEBUG,
@@ -39,7 +39,7 @@ class Logger:
                 force=True,
             )
         elif logging_mode == LoggingMode.FILE:
-            if target_folder != str() and os.path.exists(target_folder):
+            if target_folder != "" and os.path.exists(target_folder):
                 _CurrentDateTime = datetime.datetime.now()
                 file_name = f"EMLMailReader_Logs_{_CurrentDateTime.year}{_CurrentDateTime.month}{_CurrentDateTime.day}_{_CurrentDateTime.hour}{_CurrentDateTime.minute}{_CurrentDateTime.second}.log"
                 complete_file_path = os.path.join(target_folder, file_name)
@@ -56,7 +56,7 @@ class Logger:
         return complete_file_path
 
     @staticmethod
-    def logentry(message: str, logging_level: LoggingLevel):
+    def logentry(message: str, logging_level: LoggingLevel | object) -> None:
         """Write one message at the requested library logging severity.
 
         Args:

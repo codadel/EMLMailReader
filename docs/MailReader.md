@@ -95,8 +95,7 @@ bytes are available.
 
 ```python
 message = MailReader().parse_string(
-    "Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n"
-    "From: alice@example.com\r\n\r\nHello"
+    "Date: Fri, 21 Nov 1997 09:55:06 -0600\r\nFrom: alice@example.com\r\n\r\nHello"
 )
 ```
 
@@ -129,9 +128,7 @@ from EMLMailReader import (
 )
 
 try:
-    message = MailReader(
-        parsing_mode=ParsingMode.STRICT
-    ).parse_bytes(source)
+    message = MailReader(parsing_mode=ParsingMode.STRICT).parse_bytes(source)
 except StandardsComplianceError as error:
     for diagnostic in error.diagnostics:
         print(diagnostic.code)

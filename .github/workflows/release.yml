@@ -34,8 +34,22 @@ jobs:
           python -m pip install --upgrade pip build
           python -m pip install -e . -r requirements.txt
 
-      - name: Run tests
-        run: python -m pytest
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Run lint checks
+        run: ruff check .
+
+      - name: Run static type checks
+        run: mypy EMLMailReader tests
+
+      - name: Run tests with branch coverage
+        run: >-
+          pytest
+          --cov=EMLMailReader
+          --cov-branch
+          --cov-report=term-missing
+          --cov-fail-under=95
 
       - name: Bump patch version
         id: bump-version

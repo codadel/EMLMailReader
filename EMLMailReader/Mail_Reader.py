@@ -1,13 +1,20 @@
 """Public parsing facade for files and in-memory Internet messages."""
 
 import os
+from collections.abc import Iterator
+from typing import IO
 
 from .Custom_Exceptions import FileMissingError
 from .Enumerations import LoggingLevel, LoggingMode
 from .Processing_Logs import Logger
 from .RFC_Parser import StandardsParser
 from .Rx_Mail_Message import RxMailMessage
-from .Standards import ParserLimits, ParsingMode, StandardsComplianceError
+from .Standards import (
+    ParseDiagnostic,
+    ParserLimits,
+    ParsingMode,
+    StandardsComplianceError,
+)
 
 
 class MailReader:
@@ -27,7 +34,7 @@ class MailReader:
         TargetLoggingFolder: str = "",
         parsing_mode: ParsingMode | str = ParsingMode.MODERN,
         limits: ParserLimits | None = None,
-    ):
+    ) -> None:
         """Initialize a reusable parser facade.
 
         Args:
@@ -101,7 +108,11 @@ class MailReader:
         """
         message = self.__StandardsParser.parse(source)
         for diagnostic in self._all_diagnostics(message):
-            level = LoggingLevel.ERROR if diagnostic.severity.value == "error" else LoggingLevel.INFO
+            level = (
+                LoggingLevel.ERROR
+                if diagnostic.severity.value == "error"
+                else LoggingLevel.INFO
+            )
             Logger.logentry(f"{diagnostic.code}: {diagnostic.message}", level)
         return message
 
@@ -117,7 +128,7 @@ class MailReader:
         """
         return self.parse_bytes(source.encode(encoding))
 
-    def parse_stream(self, stream) -> RxMailMessage:
+    def parse_stream(self, stream: IO[bytes] | IO[str]) -> RxMailMessage:
         """Read and parse a binary or text stream from its current position.
 
         Text streams are encoded as UTF-8. The caller retains ownership of the
@@ -135,7 +146,7 @@ class MailReader:
         return self.parse_bytes(source)
 
     @classmethod
-    def _all_diagnostics(cls, message: RxMailMessage):
+    def _all_diagnostics(cls, message: RxMailMessage) -> Iterator[ParseDiagnostic]:
         """Yield diagnostics from a message and all descendant MIME nodes."""
         yield from message.Diagnostics
         for child in message.Children:

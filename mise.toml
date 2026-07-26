@@ -6,7 +6,11 @@ _.python.venv = { path = ".venv", create = true }
 
 [tasks.setup]
 description = "Install local package and project requirements"
-run = "python -m pip install --upgrade pip && python -m pip install -e . -r requirements.txt"
+run = """
+python -m pip install --upgrade pip
+python -m pip install -e . -r requirements.txt
+pre-commit install --install-hooks
+"""
 
 [tasks.test]
 description = "Run the pytest suite"
@@ -31,3 +35,40 @@ run = "pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-f
 [tasks.coverage-html]
 description = "Run tests and generate terminal and HTML coverage reports"
 run = "pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-report=html --cov-fail-under=95"
+
+[tasks.format]
+description = "Apply Ruff formatting manually"
+run = "ruff format ."
+
+[tasks.format-check]
+description = "Check Ruff formatting without changing files"
+run = "ruff format --check ."
+
+[tasks.lint]
+description = "Run Ruff lint checks without changing files"
+run = "ruff check ."
+
+[tasks.lint-fix]
+description = "Apply safe Ruff lint fixes manually"
+run = "ruff check --fix ."
+
+[tasks.typecheck]
+description = "Run strict MyPy analysis"
+run = "mypy EMLMailReader tests"
+
+[tasks.hooks]
+description = "Install or update the repository pre-commit hook"
+run = "pre-commit install --install-hooks"
+
+[tasks.pre-commit]
+description = "Run every check-only pre-commit hook against the repository"
+run = "pre-commit run --all-files --show-diff-on-failure"
+
+[tasks.quality]
+description = "Run every non-mutating quality and coverage check"
+run = """
+ruff format --check .
+ruff check .
+mypy EMLMailReader tests
+pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-fail-under=95
+"""

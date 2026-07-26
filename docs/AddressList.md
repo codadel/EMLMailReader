@@ -17,8 +17,7 @@ Supplying a value parses it immediately.
 from EMLMailReader import AddressList
 
 recipients = AddressList(
-    "Alice <alice@example.com>, "
-    "Engineering: Bob <bob@example.com>, carol@example.com;"
+    "Alice <alice@example.com>, Engineering: Bob <bob@example.com>, carol@example.com;"
 )
 ```
 

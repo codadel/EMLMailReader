@@ -17,9 +17,10 @@ class FileMissingError(Exception):
         self.filePath = filePath
         """The file path that was not found or is inaccessible."""
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return an error message containing the unavailable file path."""
-        return f"Error occurred on line {self.__traceback__.tb_lineno}:> File - '{self.filePath}' is either not available at location or not accessible."
+        line = self.__traceback__.tb_lineno if self.__traceback__ else "unknown"
+        return f"Error occurred on line {line}:> File - '{self.filePath}' is either not available at location or not accessible."
 
 
 class FolderNotAvailableError(Exception):
@@ -37,6 +38,7 @@ class FolderNotAvailableError(Exception):
         self.folderPath = folderPath
         """The folder path that was not found or is inaccessible."""
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return an error message containing the unavailable directory path."""
-        return f"Error occurred on line {self.__traceback__.tb_lineno}:> Folder - '{self.folderPath}' is either not accessible or does not exist.."
+        line = self.__traceback__.tb_lineno if self.__traceback__ else "unknown"
+        return f"Error occurred on line {line}:> Folder - '{self.folderPath}' is either not accessible or does not exist.."

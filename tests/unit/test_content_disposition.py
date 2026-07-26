@@ -4,7 +4,7 @@ from EMLMailReader import ContentDisposition
 
 
 class TestContentDisposition(unittest.TestCase):
-    def test_registered_and_extension_dispositions(self):
+    def test_registered_and_extension_dispositions(self) -> None:
         inline = ContentDisposition()
         inline.parse("inline; filename=photo.png")
         self.assertEqual(inline.DispositionType, "inline")
@@ -16,7 +16,7 @@ class TestContentDisposition(unittest.TestCase):
         self.assertEqual(extension.DispositionType, "render")
         self.assertEqual(extension.get_parameter("X-Mode"), "preview")
 
-    def test_dates_size_and_dictionary_share_one_representation(self):
+    def test_dates_size_and_dictionary_share_one_representation(self) -> None:
         value = (
             'attachment; filename="report.txt"; size=12; '
             'creation-date="Fri, 21 Nov 1997 09:55:06 -0600"; '
@@ -27,15 +27,22 @@ class TestContentDisposition(unittest.TestCase):
         disposition.parse(value)
 
         self.assertEqual(disposition.Size, 12)
+        assert disposition.CreationDate is not None
+        assert disposition.ModificationDate is not None
+        assert disposition.ReadDate is not None
         self.assertTrue(disposition.CreationDate.valid)
         self.assertFalse(disposition.ModificationDate.valid)
         self.assertTrue(disposition.ReadDate.valid)
         exported = disposition.to_dict()
         self.assertEqual(exported["filename"], "report.txt")
-        self.assertEqual(exported["creation_date"]["valid"], True)
-        self.assertEqual(exported["modification_date"]["valid"], False)
+        creation_date = exported["creation_date"]
+        modification_date = exported["modification_date"]
+        assert isinstance(creation_date, dict)
+        assert isinstance(modification_date, dict)
+        self.assertEqual(creation_date["valid"], True)
+        self.assertEqual(modification_date["valid"], False)
 
-    def test_empty_and_non_numeric_parameters(self):
+    def test_empty_and_non_numeric_parameters(self) -> None:
         disposition = ContentDisposition()
         disposition.parse("attachment; size=many")
         self.assertEqual(disposition.Size, 0)
@@ -43,7 +50,7 @@ class TestContentDisposition(unittest.TestCase):
         self.assertIsNone(disposition.get_parameter("missing"))
         self.assertEqual(disposition.get_parameter("missing", "fallback"), "fallback")
 
-    def test_header_serialization(self):
+    def test_header_serialization(self) -> None:
         disposition = ContentDisposition()
         disposition.parse('attachment; filename="hello world.txt"')
         self.assertIn("attachment", disposition.to_header_value())

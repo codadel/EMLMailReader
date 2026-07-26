@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Iterable, Iterator, Sequence
+from typing import TYPE_CHECKING, TypeVar, overload
 
 from .Enumerations import TransferEncoding
+
+if TYPE_CHECKING:
+    from .Mail_Address import MailAddress
+
+type JsonValue = (
+    bool | int | float | str | Sequence[JsonValue] | Mapping[str, JsonValue] | None
+)
+type JsonObject = dict[str, JsonValue]
+
+_DefaultT = TypeVar("_DefaultT")
 
 
 class ParsingMode(str, Enum):
@@ -46,10 +57,14 @@ class StandardsComplianceError(ValueError):
             exception was raised.
     """
 
-    def __init__(self, diagnostics):
+    def __init__(self, diagnostics: Iterable[ParseDiagnostic]) -> None:
         """Create an exception from an iterable of parser diagnostics."""
-        self.diagnostics = tuple(diagnostics)
-        codes = ", ".join(item.code for item in self.diagnostics if item.severity == DiagnosticSeverity.ERROR)
+        self.diagnostics: tuple[ParseDiagnostic, ...] = tuple(diagnostics)
+        codes = ", ".join(
+            item.code
+            for item in self.diagnostics
+            if item.severity == DiagnosticSeverity.ERROR
+        )
         super().__init__(f"Message is not conformant: {codes or 'unknown error'}")
 
 
@@ -98,7 +113,7 @@ class ParseDiagnostic:
     line: int | None = None
     column: int | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible diagnostic record."""
         result = asdict(self)
         result["severity"] = self.severity.value
@@ -129,7 +144,7 @@ class HeaderField:
     line: int | None = None
     syntax_status: SyntaxStatus = SyntaxStatus.CURRENT
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible header occurrence."""
         result = asdict(self)
         result["syntax_status"] = self.syntax_status.value
@@ -139,7 +154,7 @@ class HeaderField:
 class HeaderCollection(Sequence[HeaderField]):
     """Store ordered duplicate headers with case-insensitive lookup."""
 
-    def __init__(self, fields: Iterable[HeaderField] | None = None):
+    def __init__(self, fields: Iterable[HeaderField] | None = None) -> None:
         """Initialize the collection from optional header occurrences."""
         self._fields = list(fields or [])
 
@@ -147,7 +162,13 @@ class HeaderCollection(Sequence[HeaderField]):
         """Return the number of header occurrences."""
         return len(self._fields)
 
-    def __getitem__(self, index):
+    @overload
+    def __getitem__(self, index: int) -> HeaderField: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> list[HeaderField]: ...
+
+    def __getitem__(self, index: int | slice) -> HeaderField | list[HeaderField]:
         """Return an occurrence or slice using sequence indexing."""
         return self._fields[index]
 
@@ -159,7 +180,19 @@ class HeaderCollection(Sequence[HeaderField]):
         """Append a header occurrence without deduplicating its name."""
         self._fields.append(value)
 
-    def get(self, name: str, default=None, *, decoded: bool = True):
+    @overload
+    def get(
+        self, name: str, default: None = None, *, decoded: bool = True
+    ) -> str | None: ...
+
+    @overload
+    def get(
+        self, name: str, default: _DefaultT, *, decoded: bool = True
+    ) -> str | _DefaultT: ...
+
+    def get(
+        self, name: str, default: _DefaultT | None = None, *, decoded: bool = True
+    ) -> str | _DefaultT | None:
         """Return the last matching value or a default.
 
         Args:
@@ -184,7 +217,7 @@ class HeaderCollection(Sequence[HeaderField]):
         key = name.casefold()
         return [field for field in self._fields if field.name.casefold() == key]
 
-    def to_list(self) -> list[dict]:
+    def to_list(self) -> list[JsonObject]:
         """Serialize every occurrence in source order."""
         return [field.to_dict() for field in self._fields]
 
@@ -204,7 +237,7 @@ class TransferEncodingValue:
     is_extension: bool = False
 
     @classmethod
-    def parse(cls, value: str | None):
+    def parse(cls, value: str | None) -> TransferEncodingValue:
         """Classify a transfer-encoding token without discarding extensions."""
         token = (value or "7bit").strip().lower()
         known = {
@@ -217,7 +250,7 @@ class TransferEncodingValue:
         kind = known.get(token, TransferEncoding.UNKNOWN)
         return cls(token, kind, kind == TransferEncoding.UNKNOWN)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible transfer-encoding record."""
         return {
             "raw_value": self.raw_value,
@@ -237,10 +270,10 @@ class AddressGroup:
     """
 
     display_name: str
-    addresses: tuple
+    addresses: tuple[MailAddress, ...]
     raw_value: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible group and its member mailboxes."""
         return {
             "display_name": self.display_name,
@@ -267,7 +300,7 @@ class ParsedMessageID:
     right: str
     valid: bool = True
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible message-identifier record."""
         return asdict(self)
 
@@ -288,7 +321,7 @@ class ParsedDateTime:
     valid: bool
     obsolete: bool = False
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible date record using ISO 8601 text."""
         return {
             "raw_value": self.raw_value,
@@ -312,7 +345,7 @@ class MessagePartialInfo:
     number: int | None
     total: int | None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible fragment metadata record."""
         return asdict(self)
 
@@ -327,9 +360,9 @@ class ExternalBodyAccessInfo:
     """
 
     access_type: str
-    parameters: dict
+    parameters: dict[str, str]
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible external-body metadata record."""
         return {"access_type": self.access_type, "parameters": dict(self.parameters)}
 
@@ -344,7 +377,7 @@ class ResentBlock:
 
     fields: HeaderCollection = field(default_factory=HeaderCollection)
 
-    def to_dict(self) -> list[dict]:
+    def to_dict(self) -> list[JsonObject]:
         """Serialize the block as its ordered header-field records."""
         return self.fields.to_list()
 
@@ -361,6 +394,6 @@ class TraceBlock:
     return_path: str | None = None
     received: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible trace block."""
         return {"return_path": self.return_path, "received": list(self.received)}

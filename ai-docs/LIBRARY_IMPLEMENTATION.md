@@ -45,10 +45,13 @@ with diagnostics; strict parsing is the conformance-enforcement path.
 - `EMLMailReader/Enumerations.py` and
   `EMLMailReader/Custom_Exceptions.py` contain shared public values.
 - `EMLMailReader/__init__.py` defines package-root public imports.
+- `EMLMailReader/py.typed` marks the installed package as providing inline
+  annotations to PEP 561-aware type checkers.
 
 The project requires Python 3.12 or newer. Runtime code uses only the Python
 standard library. Development dependencies are in `requirements.txt`, and
-package metadata is in `pyproject.toml`.
+package metadata is in `pyproject.toml`. Strict typing, formatting, linting,
+and check-only automation are documented in [Code quality](QUALITY.md).
 
 ## Canonical public model
 

@@ -32,9 +32,7 @@ parse(
 ```
 
 ```python
-content_type.parse(
-    'multipart/mixed; boundary="part-boundary"; name="message.eml"'
-)
+content_type.parse('multipart/mixed; boundary="part-boundary"; name="message.eml"')
 
 assert content_type.MediaType == "multipart/mixed"
 assert content_type.Boundary == "part-boundary"

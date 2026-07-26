@@ -13,6 +13,7 @@ classes.
 
 - Python 3.12 or newer
 - No runtime dependencies outside the Python standard library
+- Inline type information for PEP 561-aware static type checkers
 
 ```bash
 python -m pip install emlmailreader
@@ -53,8 +54,7 @@ from_bytes = reader.parse_bytes(
     b"Hello"
 )
 from_text = reader.parse_string(
-    "Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n"
-    "From: alice@example.com\r\n\r\nHello"
+    "Date: Fri, 21 Nov 1997 09:55:06 -0600\r\nFrom: alice@example.com\r\n\r\nHello"
 )
 from_stream = reader.parse_stream(BytesIO(from_bytes.RawSource))
 ```
@@ -72,6 +72,7 @@ def walk(part):
     yield part
     for child in part.Children:
         yield from walk(child)
+
 
 for part in walk(message):
     print(part.ContentType.MediaType, part.Name)

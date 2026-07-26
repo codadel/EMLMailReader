@@ -1,5 +1,5 @@
-import json
 import inspect
+import json
 import unittest
 
 from EMLMailReader import (
@@ -11,12 +11,9 @@ from EMLMailReader import (
 
 
 class TestRxMailMessage(unittest.TestCase):
-    REQUIRED = (
-        b"Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n"
-        b"From: alice@example.com\r\n"
-    )
+    REQUIRED = b"Date: Fri, 21 Nov 1997 09:55:06 -0600\r\nFrom: alice@example.com\r\n"
 
-    def test_default_model_uses_canonical_types(self):
+    def test_default_model_uses_canonical_types(self) -> None:
         message = RxMailMessage()
         self.assertEqual(message.Headers.to_list(), [])
         self.assertEqual(message.From.Mailboxes, ())
@@ -26,7 +23,7 @@ class TestRxMailMessage(unittest.TestCase):
         self.assertEqual(message.Attachments, ())
         self.assertEqual(message.InlineResources, ())
 
-    def test_compatibility_projection_properties_are_absent(self):
+    def test_compatibility_projection_properties_are_absent(self) -> None:
         message = RxMailMessage()
         removed = (
             "HeaderFields",
@@ -50,7 +47,7 @@ class TestRxMailMessage(unittest.TestCase):
         self.assertTrue(all(not hasattr(message, name) for name in removed))
         self.assertNotIn("compatibility_mode", inspect.signature(MailReader).parameters)
 
-    def test_body_views_are_computed_from_mime_tree(self):
+    def test_body_views_are_computed_from_mime_tree(self) -> None:
         plain = RxMailMessage()
         plain.ContentType.parse("text/plain; charset=utf-8")
         plain._DecodedText = "plain"
@@ -73,7 +70,7 @@ class TestRxMailMessage(unittest.TestCase):
         mixed.Children.extend((plain, html))
         self.assertEqual(mixed.Body, "plain")
 
-    def test_attachment_and_inline_views_reference_mime_parts(self):
+    def test_attachment_and_inline_views_reference_mime_parts(self) -> None:
         attachment = RxMailMessage()
         attachment.ContentType.parse('application/octet-stream; name="legacy.bin"')
         attachment.ContentDisposition = ContentDisposition()
@@ -96,14 +93,16 @@ class TestRxMailMessage(unittest.TestCase):
         self.assertFalse(inline.IsAttachment)
         self.assertTrue(inline.IsInline)
 
-    def test_filename_without_disposition_is_an_attachment(self):
+    def test_filename_without_disposition_is_an_attachment(self) -> None:
         part = RxMailMessage()
         part.ContentType.parse('application/octet-stream; name="data.bin"')
         self.assertTrue(part.IsAttachment)
         self.assertEqual(part.Attachments, (part,))
 
-    def test_single_json_schema_serializes_children_once(self):
-        message = MailReader().parse_bytes(self.REQUIRED + b"Subject: hello\r\n\r\nbody")
+    def test_single_json_schema_serializes_children_once(self) -> None:
+        message = MailReader().parse_bytes(
+            self.REQUIRED + b"Subject: hello\r\n\r\nbody"
+        )
         exported = message.to_dict()
         self.assertEqual(exported["schema_version"], 2)
         self.assertEqual(exported["subject"], "hello")
@@ -111,7 +110,7 @@ class TestRxMailMessage(unittest.TestCase):
         self.assertNotIn("attachments", exported)
         self.assertEqual(json.loads(message.export_as_json()), exported)
 
-    def test_content_type_and_disposition_helpers(self):
+    def test_content_type_and_disposition_helpers(self) -> None:
         content_type = ContentType()
         content_type.parse("text/plain; charset=utf-8; format=flowed")
         self.assertEqual(content_type.get_parameter("FORMAT"), "flowed")

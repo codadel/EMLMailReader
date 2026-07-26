@@ -1,15 +1,17 @@
 """Utilities for MIME transfer and encoded-header text decoding."""
 
-from quopri import decodestring
 from base64 import b64decode
 from email.header import decode_header as stdlib_decode_header
+from quopri import decodestring
 
 
 class TextEncoding:
     """Decode common MIME transfer encodings and RFC 2047 header text."""
 
     @staticmethod
-    def decode_quoted_printable_string(encoded_string: str, string_charset: str, is_header: bool) -> str:
+    def decode_quoted_printable_string(
+        encoded_string: str, string_charset: str, is_header: bool
+    ) -> str:
         """Decode quoted-printable text using the supplied character set.
 
         Args:
@@ -21,7 +23,7 @@ class TextEncoding:
         Returns:
             Decoded Unicode text.
         """
-        if string_charset == str():
+        if string_charset == "":
             string_charset = "utf-8"
         decoded_value = decodestring(encoded_string, header=is_header)
         decoded_string = decoded_value.decode(string_charset)

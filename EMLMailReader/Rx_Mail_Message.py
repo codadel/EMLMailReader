@@ -3,10 +3,22 @@
 import json
 import os
 
+from .Content_Disposition import ContentDisposition
 from .Content_Type import ContentType
-from .Mail_Address import AddressList
-from .Standards import HeaderCollection, TransferEncodingValue
 from .Custom_Exceptions import FolderNotAvailableError
+from .Mail_Address import AddressList
+from .Standards import (
+    ExternalBodyAccessInfo,
+    HeaderCollection,
+    JsonObject,
+    MessagePartialInfo,
+    ParsedDateTime,
+    ParseDiagnostic,
+    ParsedMessageID,
+    ResentBlock,
+    TraceBlock,
+    TransferEncodingValue,
+)
 
 
 class RxMailMessage:
@@ -53,7 +65,7 @@ class RxMailMessage:
         Diagnostics: Standards findings attached to this entity.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize an empty message using RFC/MIME default field values."""
         self.Headers = HeaderCollection()
         self.From = AddressList()
@@ -63,39 +75,41 @@ class RxMailMessage:
         self.Cc = AddressList()
         self.Bcc = AddressList()
         self.Subject = ""
-        self.Date = None
-        self.MessageID = None
-        self.InReplyTo = []
-        self.References = []
-        self.Comments = []
-        self.Keywords = []
-        self.Received = []
+        self.Date: ParsedDateTime | None = None
+        self.MessageID: ParsedMessageID | None = None
+        self.InReplyTo: list[ParsedMessageID] = []
+        self.References: list[ParsedMessageID] = []
+        self.Comments: list[str] = []
+        self.Keywords: list[str] = []
+        self.Received: list[str] = []
         self.ReturnPath = ""
-        self.ResentBlocks = []
-        self.TraceBlocks = []
+        self.ResentBlocks: list[ResentBlock] = []
+        self.TraceBlocks: list[TraceBlock] = []
 
         self.ContentType = ContentType()
-        self.ContentDisposition = None
+        self.ContentDisposition: ContentDisposition | None = None
         self.ContentTransferEncoding = TransferEncodingValue.parse("7bit")
         self.MimeVersion = ""
         self.ContentDescription = ""
-        self.ContentID = None
-        self.MessagePartial = None
-        self.ExternalBodyAccess = None
+        self.ContentID: ParsedMessageID | None = None
+        self.MessagePartial: MessagePartialInfo | None = None
+        self.ExternalBodyAccess: ExternalBodyAccessInfo | None = None
 
-        self.RawSource = bytes()
-        self.RawBody = bytes()
-        self.DecodedBody = bytes()
+        self.RawSource = b""
+        self.RawBody = b""
+        self.DecodedBody = b""
         self._DecodedText = ""
-        self.Children = []
+        self.Children: list[RxMailMessage] = []
         self.Preamble = ""
         self.Epilogue = ""
-        self.Diagnostics = []
+        self.Diagnostics: list[ParseDiagnostic] = []
 
     @property
     def IsMultiPart(self) -> bool:
         """Return whether the entity is a multipart container or has children."""
-        return bool(self.Children) or self.ContentType.MediaType.startswith("multipart/")
+        return bool(self.Children) or self.ContentType.MediaType.startswith(
+            "multipart/"
+        )
 
     @property
     def Body(self) -> str:
@@ -118,14 +132,18 @@ class RxMailMessage:
     def TextBody(self) -> str:
         """Return the first decoded ``text/plain`` body in this subtree."""
         if not self.Children:
-            return self._DecodedText if self.ContentType.MediaType == "text/plain" else ""
+            return (
+                self._DecodedText if self.ContentType.MediaType == "text/plain" else ""
+            )
         return next((child.TextBody for child in self.Children if child.TextBody), "")
 
     @property
     def HtmlBody(self) -> str:
         """Return the first decoded ``text/html`` body in this subtree."""
         if not self.Children:
-            return self._DecodedText if self.ContentType.MediaType == "text/html" else ""
+            return (
+                self._DecodedText if self.ContentType.MediaType == "text/html" else ""
+            )
         return next((child.HtmlBody for child in self.Children if child.HtmlBody), "")
 
     @property
@@ -138,7 +156,10 @@ class RxMailMessage:
     @property
     def IsInline(self) -> bool:
         """Return whether the entity has an explicit inline disposition."""
-        return bool(self.ContentDisposition and self.ContentDisposition.DispositionType == "inline")
+        return bool(
+            self.ContentDisposition
+            and self.ContentDisposition.DispositionType == "inline"
+        )
 
     @property
     def IsAttachment(self) -> bool:
@@ -147,13 +168,17 @@ class RxMailMessage:
         Explicit attachment dispositions qualify. A named entity also qualifies
         unless it is explicitly inline.
         """
-        disposition = self.ContentDisposition.DispositionType if self.ContentDisposition else ""
-        return disposition == "attachment" or (bool(self.Name) and disposition != "inline")
+        disposition = (
+            self.ContentDisposition.DispositionType if self.ContentDisposition else ""
+        )
+        return disposition == "attachment" or (
+            bool(self.Name) and disposition != "inline"
+        )
 
     @property
     def Attachments(self) -> tuple["RxMailMessage", ...]:
         """Return attachment entities in this subtree as an immutable tuple."""
-        attachments = [self] if self.IsAttachment else []
+        attachments: list[RxMailMessage] = [self] if self.IsAttachment else []
         for child in self.Children:
             attachments.extend(child.Attachments)
         return tuple(attachments)
@@ -161,7 +186,7 @@ class RxMailMessage:
     @property
     def InlineResources(self) -> tuple["RxMailMessage", ...]:
         """Return explicitly inline entities in this subtree as an immutable tuple."""
-        resources = [self] if self.IsInline else []
+        resources: list[RxMailMessage] = [self] if self.IsInline else []
         for child in self.Children:
             resources.extend(child.InlineResources)
         return tuple(resources)
@@ -170,7 +195,7 @@ class RxMailMessage:
         """Serialize the canonical recursive schema as Unicode-preserving JSON."""
         return json.dumps(self.to_dict(), ensure_ascii=False)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return the complete JSON-compatible canonical message schema.
 
         Source and decoded byte payloads are intentionally omitted. Attachment
@@ -199,12 +224,18 @@ class RxMailMessage:
             "trace_blocks": [block.to_dict() for block in self.TraceBlocks],
             "mime_version": self.MimeVersion,
             "content_type": self.ContentType.to_dict(),
-            "content_disposition": self.ContentDisposition.to_dict() if self.ContentDisposition else None,
+            "content_disposition": self.ContentDisposition.to_dict()
+            if self.ContentDisposition
+            else None,
             "content_transfer_encoding": self.ContentTransferEncoding.to_dict(),
             "content_id": self.ContentID.to_dict() if self.ContentID else None,
             "content_description": self.ContentDescription,
-            "message_partial": self.MessagePartial.to_dict() if self.MessagePartial else None,
-            "external_body_access": self.ExternalBodyAccess.to_dict() if self.ExternalBodyAccess else None,
+            "message_partial": self.MessagePartial.to_dict()
+            if self.MessagePartial
+            else None,
+            "external_body_access": self.ExternalBodyAccess.to_dict()
+            if self.ExternalBodyAccess
+            else None,
             "is_multipart": self.IsMultiPart,
             "is_attachment": self.IsAttachment,
             "is_inline": self.IsInline,
@@ -218,7 +249,7 @@ class RxMailMessage:
             "diagnostics": [item.to_dict() for item in self.Diagnostics],
         }
 
-    def save_attachments(self, TargetFolderPath: str):
+    def save_attachments(self, TargetFolderPath: str) -> None:
         """Write every attachment payload in this subtree to a directory.
 
         Filenames are reduced to their basename; empty or unsafe basename-only

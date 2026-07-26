@@ -74,9 +74,7 @@ Strict-mode exceptions expose a flattened tuple through
 from EMLMailReader import DiagnosticSeverity
 
 errors = [
-    item
-    for item in message.Diagnostics
-    if item.severity == DiagnosticSeverity.ERROR
+    item for item in message.Diagnostics if item.severity == DiagnosticSeverity.ERROR
 ]
 ```
 

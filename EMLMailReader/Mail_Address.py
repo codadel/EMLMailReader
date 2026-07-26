@@ -1,10 +1,14 @@
 """Structured mailbox and address-group models for Internet message fields."""
 
-from .Text_Encoding import TextEncoding
-from .Standards import AddressGroup
+from __future__ import annotations
+
+from collections.abc import Iterator
+from email.headerregistry import Address
 from email.parser import HeaderParser
 from email.policy import default
-from email.headerregistry import Address
+
+from .Standards import AddressGroup, JsonObject
+from .Text_Encoding import TextEncoding
 
 
 class MailAddress:
@@ -19,18 +23,18 @@ class MailAddress:
         IsInternationalized: Whether the source contains non-ASCII characters.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize an empty mailbox."""
-        self.DisplayName = str()
+        self.DisplayName = ""
         """The human-readable name associated with the email address (optional)."""
-        self.Email = str()
+        self.Email = ""
         """The actual email address (user@domain.com format)."""
-        self.LocalPart = str()
-        self.Domain = str()
-        self.RawValue = str()
+        self.LocalPart = ""
+        self.Domain = ""
+        self.RawValue = ""
         self.IsInternationalized = False
 
-    def parse(self, MailAddressString: str):
+    def parse(self, MailAddressString: str) -> None:
         """Parse the first mailbox from a source address value.
 
         The instance is reset before parsing. If the standard header parser
@@ -67,13 +71,17 @@ class MailAddress:
                 name_value = value[0:index].strip().strip('"')
                 self.DisplayName = TextEncoding.decode_header(name_value)
                 index_one = value.find(">", index)
-                self.Email = value[index + 1:index_one if index_one >= 0 else None].strip()
+                self.Email = value[
+                    index + 1 : index_one if index_one >= 0 else None
+                ].strip()
         if not self.LocalPart and "@" in self.Email:
             self.LocalPart, self.Domain = self.Email.rsplit("@", 1)
         self.IsInternationalized = any(ord(character) > 127 for character in value)
 
     @classmethod
-    def from_parts(cls, display_name: str, username: str, domain: str, raw_value: str = ""):
+    def from_parts(
+        cls, display_name: str, username: str, domain: str, raw_value: str = ""
+    ) -> MailAddress:
         """Build a mailbox from components produced by the header registry.
 
         Args:
@@ -89,12 +97,18 @@ class MailAddress:
         address.DisplayName = display_name or ""
         address.LocalPart = username or ""
         address.Domain = domain or ""
-        address.Email = f"{address.LocalPart}@{address.Domain}" if address.Domain else address.LocalPart
+        address.Email = (
+            f"{address.LocalPart}@{address.Domain}"
+            if address.Domain
+            else address.LocalPart
+        )
         address.RawValue = raw_value or str(address)
-        address.IsInternationalized = any(ord(character) > 127 for character in address.RawValue)
+        address.IsInternationalized = any(
+            ord(character) > 127 for character in address.RawValue
+        )
         return address
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> JsonObject:
         """Return a JSON-compatible mailbox representation."""
         return {
             "display_name": self.DisplayName,
@@ -112,11 +126,13 @@ class MailAddress:
     def __str__(self) -> str:
         """Return the mailbox as a normalized address-header value."""
         try:
-            return str(Address(
-                display_name=self.DisplayName,
-                username=self.LocalPart or self.Email,
-                domain=self.Domain,
-            ))
+            return str(
+                Address(
+                    display_name=self.DisplayName,
+                    username=self.LocalPart or self.Email,
+                    domain=self.Domain,
+                )
+            )
         except (TypeError, ValueError):
             if self.DisplayName:
                 return f"{self.DisplayName} <{self.Email}>"
@@ -132,14 +148,14 @@ class AddressList:
             :class:`AddressGroup` values.
     """
 
-    def __init__(self, raw_value: str = ""):
+    def __init__(self, raw_value: str = "") -> None:
         """Initialize an address list and optionally parse a source value."""
         self.RawValue = raw_value
-        self.Items = []
+        self.Items: list[MailAddress | AddressGroup] = []
         if raw_value:
             self.parse(raw_value)
 
-    def parse(self, value: str):
+    def parse(self, value: str) -> AddressList:
         """Parse an RFC 5322/6854 address list in place.
 
         Args:
@@ -157,7 +173,9 @@ class AddressList:
                 for item in tuple(getattr(group, "addresses", ()))
             )
             if getattr(group, "display_name", None) is not None:
-                self.Items.append(AddressGroup(group.display_name or "", mailboxes, self.RawValue))
+                self.Items.append(
+                    AddressGroup(group.display_name or "", mailboxes, self.RawValue)
+                )
             else:
                 self.Items.extend(mailboxes)
         return self
@@ -165,7 +183,7 @@ class AddressList:
     @property
     def Mailboxes(self) -> tuple[MailAddress, ...]:
         """Return all direct and grouped mailboxes as an immutable flat tuple."""
-        mailboxes = []
+        mailboxes: list[MailAddress] = []
         for item in self.Items:
             if isinstance(item, AddressGroup):
                 mailboxes.extend(item.addresses)
@@ -173,32 +191,34 @@ class AddressList:
                 mailboxes.append(item)
         return tuple(mailboxes)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[MailAddress | AddressGroup]:
         """Iterate over top-level mailboxes and address groups in source order."""
         return iter(self.Items)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the number of top-level mailbox or group items."""
         return len(self.Items)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return whether parsed items or a source value are present."""
         return bool(self.Items) or bool(self.RawValue)
 
     def to_header_value(self) -> str:
         """Return a normalized address-list value while preserving groups."""
-        values = []
+        values: list[str] = []
         for item in self.Items:
             if isinstance(item, AddressGroup):
-                members = ", ".join(address.to_header_value() for address in item.addresses)
+                members = ", ".join(
+                    address.to_header_value() for address in item.addresses
+                )
                 values.append(f"{item.display_name}: {members};")
             else:
                 values.append(item.to_header_value())
         return ", ".join(values)
 
-    def to_dict(self) -> list[dict]:
+    def to_dict(self) -> list[JsonObject]:
         """Return ordered JSON-compatible mailbox and group records."""
-        result = []
+        result: list[JsonObject] = []
         for item in self.Items:
             if isinstance(item, AddressGroup):
                 result.append({"type": "group", **item.to_dict()})

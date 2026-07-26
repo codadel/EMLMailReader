@@ -4,7 +4,6 @@ import pytest
 
 from EMLMailReader import MailReader
 
-
 pytestmark = pytest.mark.functional
 
 EML_DIRECTORY = Path(__file__).parent / "assets" / "eml-files"
@@ -98,14 +97,14 @@ CASES = (
     ids=[case[0].removesuffix(".eml") for case in CASES],
 )
 def test_real_eml_files_parse_into_expected_message_tree(
-    filename,
-    subject,
-    from_address,
-    media_type,
-    child_count,
-    attachment_count,
-    inline_count,
-):
+    filename: str,
+    subject: str,
+    from_address: str,
+    media_type: str,
+    child_count: int,
+    attachment_count: int,
+    inline_count: int,
+) -> None:
     message = MailReader().get_email(str(EML_DIRECTORY / filename))
 
     assert message is not None
