@@ -57,6 +57,10 @@ _MIME_SINGLETON_HEADERS = (
 
 
 def _mode(value) -> ParsingMode:
+    """Normalize an enum or string into a supported parser mode.
+
+    Unknown values deliberately fall back to modern receiver behavior.
+    """
     if isinstance(value, ParsingMode):
         return value
     try:
@@ -66,12 +70,34 @@ def _mode(value) -> ParsingMode:
 
 
 class StandardsParser:
+    """Build the canonical MIME tree and report standards diagnostics.
+
+    The parser delegates syntax recovery to Python's email package, then
+    preserves source-oriented header/body data, projects structured IMF and
+    MIME values, validates the supported standards bundle, and enforces
+    configured resource limits.
+    """
+
     def __init__(self, parsing_mode=ParsingMode.MODERN, limits: ParserLimits | None = None):
+        """Configure parsing behavior and resource guards."""
         self.parsing_mode = _mode(parsing_mode)
         self.limits = limits or ParserLimits()
         self._part_count = 0
 
     def parse(self, source: bytes) -> RxMailMessage:
+        """Parse complete Internet-message bytes into a canonical MIME tree.
+
+        Args:
+            source: Complete wire-format message bytes.
+
+        Returns:
+            Root message containing parsed fields, child MIME nodes, bodies, and
+            diagnostics.
+
+        Raises:
+            StandardsComplianceError: If strict mode finds any error-level
+                diagnostic in the root or a descendant.
+        """
         self._part_count = 0
         message = BytesParser(policy=policy.default).parsebytes(source)
         result = self._convert(message, source=source, depth=0)
@@ -85,6 +111,11 @@ class StandardsParser:
         return result
 
     def _convert(self, part: Message, source: bytes | None, depth: int) -> RxMailMessage:
+        """Convert one native email entity and its descendants into the model.
+
+        ``source`` is supplied only for the root so its exact octets can be
+        retained; child source values are normalized native serializations.
+        """
         result = RxMailMessage()
         part_source = source if source is not None else part.as_bytes(policy=policy.default)
         result.RawSource = part_source
@@ -138,6 +169,12 @@ class StandardsParser:
         return result
 
     def _native_children(self, result: RxMailMessage, part: Message) -> list[Message]:
+        """Return child entities, explicitly decoding encoded message/global.
+
+        Python exposes most multipart and message children directly. RFC 6532
+        ``message/global`` with Base64 or quoted-printable transfer encoding
+        requires an additional decode-and-parse step.
+        """
         payload = part.get_payload()
         children = payload if isinstance(payload, list) else []
         media_type = part.get_content_type().lower()
@@ -165,12 +202,14 @@ class StandardsParser:
 
     @classmethod
     def _all_diagnostics(cls, result: RxMailMessage) -> list[ParseDiagnostic]:
+        """Flatten diagnostics from an entity and every descendant."""
         diagnostics = list(result.Diagnostics)
         for child in result.Children:
             diagnostics.extend(cls._all_diagnostics(child))
         return diagnostics
 
     def _headers(self, message: Message) -> HeaderCollection:
+        """Build ordered lossless header occurrences from a native message."""
         fields = HeaderCollection()
         parsed_items = list(message.items())
         raw_items = list(message.raw_items())
@@ -193,6 +232,7 @@ class StandardsParser:
         return fields
 
     def _defects(self, message: Message) -> list[ParseDiagnostic]:
+        """Translate native email-parser defects into library diagnostics."""
         diagnostics = []
         for defect in getattr(message, "defects", ()):
             diagnostics.append(ParseDiagnostic(
@@ -204,6 +244,7 @@ class StandardsParser:
         return diagnostics
 
     def _populate_imf(self, result: RxMailMessage, message: Message) -> None:
+        """Populate Internet Message Format fields and address structures."""
         result.Subject = str(message["Subject"] or "")
         result.Date = self._parse_date(result.Headers.get("Date", "", decoded=False))
         result.MessageID = self._parse_message_id(result.Headers.get("Message-ID", ""))
@@ -253,6 +294,7 @@ class StandardsParser:
         result.TraceBlocks = self._trace_blocks(result.Headers)
 
     def _populate_mime(self, result: RxMailMessage, part: Message) -> None:
+        """Populate MIME fields, message metadata, and entity diagnostics."""
         explicit_content_type = result.Headers.get("Content-Type", "", decoded=False)
         result.ContentType = ContentType()
         result.ContentType.parse(explicit_content_type, effective_media_type=part.get_content_type())
@@ -273,6 +315,7 @@ class StandardsParser:
         self._validate_mime_entity(result, part, media_type)
 
     def _populate_message_metadata(self, result: RxMailMessage, media_type: str) -> None:
+        """Project parameters for message/partial and message/external-body."""
         parameters = result.ContentType.Parameters
         if media_type == "message/partial":
             number = parameters.get("number", "")
@@ -289,6 +332,7 @@ class StandardsParser:
             )
 
     def _validate_mime_entity(self, result: RxMailMessage, part: Message, media_type: str) -> None:
+        """Validate content-type parameters and composite transfer encodings."""
         explicit = result.ContentType
         if media_type.startswith("multipart/"):
             boundary = part.get_boundary()
@@ -364,6 +408,7 @@ class StandardsParser:
             ))
 
     def _populate_leaf_body(self, result: RxMailMessage, part: Message, top_level: bool = False) -> None:
+        """Transfer-decode a leaf and decode text using its declared charset."""
         decoded = part.get_payload(decode=True)
         if decoded is None:
             payload = part.get_payload()
@@ -392,6 +437,7 @@ class StandardsParser:
             result._DecodedText = text.rstrip("\r\n") if top_level else text
 
     def _validate_required(self, result: RxMailMessage) -> None:
+        """Validate root IMF requirements, singleton fields, and MIME version."""
         for name in ("Date", "From"):
             if not result.Headers.get_all(name):
                 result.Diagnostics.append(ParseDiagnostic(
@@ -497,6 +543,7 @@ class StandardsParser:
 
     @staticmethod
     def _validate_entity_headers(result: RxMailMessage) -> None:
+        """Reject duplicate MIME singleton fields within one entity."""
         for name in _MIME_SINGLETON_HEADERS:
             occurrences = result.Headers.occurrences(name)
             if len(occurrences) > 1:
@@ -511,6 +558,7 @@ class StandardsParser:
 
     @staticmethod
     def _validate_resent_blocks(result: RxMailMessage) -> None:
+        """Validate required fields and sender rules in every Resent block."""
         for index, block in enumerate(result.ResentBlocks, start=1):
             for name in ("Resent-Date", "Resent-From"):
                 if not block.fields.get_all(name):
@@ -548,6 +596,7 @@ class StandardsParser:
                     ))
 
     def _source_diagnostics(self, source: bytes, headers: HeaderCollection) -> list[ParseDiagnostic]:
+        """Inspect root bytes for limits, UTF-8, line endings, and line length."""
         diagnostics = []
         if len(source) > self.limits.max_message_bytes:
             diagnostics.append(ParseDiagnostic(
@@ -610,6 +659,7 @@ class StandardsParser:
 
     @staticmethod
     def _parse_date(raw: str) -> ParsedDateTime | None:
+        """Parse a date while retaining invalid and obsolete source syntax."""
         if not raw:
             return None
         try:
@@ -627,6 +677,7 @@ class StandardsParser:
 
     @staticmethod
     def _parse_message_id(raw: str) -> ParsedMessageID | None:
+        """Parse one msg-id while retaining decomposed invalid input."""
         if not raw:
             return None
         match = _MSG_ID.match(raw)
@@ -638,10 +689,12 @@ class StandardsParser:
 
     @classmethod
     def _parse_message_ids(cls, raw: str) -> list[ParsedMessageID]:
+        """Extract and parse every bracketed msg-id from a field value."""
         return [item for value in _MSG_IDS.findall(raw or "") if (item := cls._parse_message_id(value))]
 
     @staticmethod
     def _resent_blocks(headers: HeaderCollection) -> list[ResentBlock]:
+        """Group contiguous Resent fields into ordered blocks."""
         blocks = []
         current = HeaderCollection()
         for field in headers:
@@ -659,6 +712,7 @@ class StandardsParser:
 
     @staticmethod
     def _trace_blocks(headers: HeaderCollection) -> list[TraceBlock]:
+        """Group Return-Path and Received occurrences into trace blocks."""
         blocks = []
         current = None
         for field in headers:

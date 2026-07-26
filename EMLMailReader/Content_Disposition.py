@@ -1,18 +1,33 @@
+"""Structured representation of a MIME Content-Disposition field."""
+
 from email.message import Message
 from email.policy import default
 from email.utils import parsedate_to_datetime
+
 from .Standards import ParsedDateTime
 
 
 class ContentDisposition:
-    """
-    A class to represent the Content-Disposition header of a MIME entity.
+    """Represent a parsed MIME Content-Disposition field.
 
-    This class parses and stores information from the Content-Disposition header,
-    which indicates how content should be presented (as attachment or inline)
-    and includes metadata such as filename, dates, and size.
+    The model retains the original field value and every decoded parameter while
+    exposing common RFC 2183 metadata such as the filename, size, and lifecycle
+    dates through dedicated attributes.
+
+    Attributes:
+        DispositionType: Lowercase registered or extension disposition token.
+        FileName: Suggested filename decoded from the ``filename`` parameter.
+        CreationDate: Parsed ``creation-date`` value, if present.
+        ModificationDate: Parsed ``modification-date`` value, if present.
+        ReadDate: Parsed ``read-date`` value, if present.
+        Size: Declared content size in bytes, or zero when absent or invalid.
+        Parameters: All decoded parameters keyed by lowercase name.
+        RawValue: Original Content-Disposition field value.
+        IsExplicit: Whether the source contained a Content-Disposition field.
     """
+
     def __init__(self):
+        """Initialize an empty, non-explicit disposition value."""
         self.DispositionType = ""
         """The registered or extension disposition token."""
         self.FileName = ""
@@ -29,14 +44,11 @@ class ContentDisposition:
         self.IsExplicit = False
 
     def parse(self, ContentDispositionString: str):
-        """
-        Parses a Content-Disposition header string and populates the object's properties.
+        """Parse a field value and replace this instance's disposition metadata.
 
-        This method extracts disposition type (inline/attachment) and associated parameters
-        like filename, size, creation-date, and modification-date from the header string.
-
-        :param ContentDispositionString: The Content-Disposition header value to parse.
-        :returns: None - modifies the object's properties in place.
+        Args:
+            ContentDispositionString: Content-Disposition value without the
+                field name.
         """
         value = (ContentDispositionString or "").strip()
         self.DispositionType = ""
@@ -56,10 +68,17 @@ class ContentDisposition:
         self.Size = int(size) if size.isdigit() else 0
 
     def get_parameter(self, name: str, default=None):
+        """Return a decoded parameter by case-insensitive name.
+
+        Args:
+            name: Parameter name to look up.
+            default: Value returned when the parameter is absent.
+        """
         return self.Parameters.get(name.lower(), default)
 
     @staticmethod
     def _parse_date(value: str):
+        """Convert an RFC-style disposition date into a lossless typed value."""
         if not value:
             return None
         try:
@@ -68,15 +87,17 @@ class ContentDisposition:
             return ParsedDateTime(value, None, False)
 
     def to_header_value(self) -> str:
+        """Return the normalized Content-Disposition value for a header field."""
         message = Message(policy=default)
         message["Content-Disposition"] = self.RawValue or self.DispositionType
         return str(message["Content-Disposition"])
 
     def __str__(self) -> str:
-        """Return the normalized RFC header value."""
+        """Return the normalized Content-Disposition field value."""
         return self.to_header_value()
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible representation of the disposition metadata."""
         return {
             "type": self.DispositionType,
             "filename": self.FileName,

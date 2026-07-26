@@ -1,8 +1,4 @@
-"""Standards-aware, lossless data structures used by the EML parser.
-
-The original public model is intentionally kept intact.  These types provide
-the richer RFC 5322/MIME view without forcing existing callers to change.
-"""
+"""Standards, diagnostics, limits, and lossless structured parser values."""
 
 from __future__ import annotations
 
@@ -15,7 +11,11 @@ from .Enumerations import TransferEncoding
 
 
 class ParsingMode(str, Enum):
-    """Controls how syntax defects affect parsing."""
+    """Control how parser diagnostics affect the result.
+
+    ``MODERN`` and ``LENIENT`` return recoverable messages with diagnostics.
+    ``STRICT`` raises when any error-level diagnostic is collected.
+    """
 
     MODERN = "modern"
     LENIENT = "lenient"
@@ -23,21 +23,31 @@ class ParsingMode(str, Enum):
 
 
 class SyntaxStatus(str, Enum):
+    """Classify header syntax as current, accepted obsolete, or invalid."""
+
     CURRENT = "current"
     OBSOLETE = "obsolete"
     NONCONFORMANT = "nonconformant"
 
 
 class DiagnosticSeverity(str, Enum):
+    """Classify a finding as informational, recoverable, or error-level."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
 
 
 class StandardsComplianceError(ValueError):
-    """Raised by strict mode while retaining the complete diagnostic report."""
+    """Report strict-mode failure with the complete diagnostic collection.
+
+    Attributes:
+        diagnostics: Immutable root and nested diagnostics collected before the
+            exception was raised.
+    """
 
     def __init__(self, diagnostics):
+        """Create an exception from an iterable of parser diagnostics."""
         self.diagnostics = tuple(diagnostics)
         codes = ", ".join(item.code for item in self.diagnostics if item.severity == DiagnosticSeverity.ERROR)
         super().__init__(f"Message is not conformant: {codes or 'unknown error'}")
@@ -45,7 +55,16 @@ class StandardsComplianceError(ValueError):
 
 @dataclass(frozen=True)
 class ParserLimits:
-    """Resource guards for hostile or accidentally enormous messages."""
+    """Set resource guards for hostile or accidentally enormous messages.
+
+    Attributes:
+        max_message_bytes: Maximum complete source size.
+        max_header_bytes: Maximum root header-section size.
+        max_header_count: Maximum root header occurrence count.
+        max_mime_depth: Maximum recursive MIME depth.
+        max_parts: Maximum MIME entity count, including the root.
+        max_decoded_part_bytes: Maximum transfer-decoded size per leaf.
+    """
 
     max_message_bytes: int = 100 * 1024 * 1024
     max_header_bytes: int = 1024 * 1024
@@ -57,6 +76,19 @@ class ParserLimits:
 
 @dataclass(frozen=True)
 class ParseDiagnostic:
+    """Describe one standards, syntax, decoding, or resource-limit finding.
+
+    Attributes:
+        code: Stable machine-readable diagnostic identifier.
+        message: Human-readable explanation.
+        severity: Informational, warning, or error impact.
+        rfc: Relevant RFC label when known.
+        section: Relevant standards section when known.
+        header: Associated header field name when applicable.
+        line: One-based source line when known.
+        column: One-based source column when known.
+    """
+
     code: str
     message: str
     severity: DiagnosticSeverity = DiagnosticSeverity.WARNING
@@ -67,6 +99,7 @@ class ParseDiagnostic:
     column: int | None = None
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible diagnostic record."""
         result = asdict(self)
         result["severity"] = self.severity.value
         return result
@@ -74,7 +107,18 @@ class ParseDiagnostic:
 
 @dataclass(frozen=True)
 class HeaderField:
-    """One header occurrence, preserving both wire and interpreted forms."""
+    """Represent one header occurrence without losing source information.
+
+    Attributes:
+        name: Lookup name for the field.
+        raw_name: Field name as it appeared in the source.
+        raw_value: Folded source value.
+        unfolded_value: Source value with legal folding removed.
+        decoded_value: Interpreted Unicode value.
+        index: Zero-based position in the header block.
+        line: One-based source line when available.
+        syntax_status: Current, obsolete, or nonconformant syntax classification.
+    """
 
     name: str
     raw_name: str
@@ -86,34 +130,48 @@ class HeaderField:
     syntax_status: SyntaxStatus = SyntaxStatus.CURRENT
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible header occurrence."""
         result = asdict(self)
         result["syntax_status"] = self.syntax_status.value
         return result
 
 
 class HeaderCollection(Sequence[HeaderField]):
-    """Ordered, duplicate-preserving collection with case-insensitive lookup."""
+    """Store ordered duplicate headers with case-insensitive lookup."""
 
     def __init__(self, fields: Iterable[HeaderField] | None = None):
+        """Initialize the collection from optional header occurrences."""
         self._fields = list(fields or [])
 
     def __len__(self) -> int:
+        """Return the number of header occurrences."""
         return len(self._fields)
 
     def __getitem__(self, index):
+        """Return an occurrence or slice using sequence indexing."""
         return self._fields[index]
 
     def __iter__(self) -> Iterator[HeaderField]:
+        """Iterate over header occurrences in source order."""
         return iter(self._fields)
 
     def append(self, value: HeaderField) -> None:
+        """Append a header occurrence without deduplicating its name."""
         self._fields.append(value)
 
     def get(self, name: str, default=None, *, decoded: bool = True):
+        """Return the last matching value or a default.
+
+        Args:
+            name: Case-insensitive field name.
+            default: Value returned when no occurrence exists.
+            decoded: Select decoded text instead of unfolded source text.
+        """
         values = self.get_all(name, decoded=decoded)
         return values[-1] if values else default
 
     def get_all(self, name: str, *, decoded: bool = True) -> list[str]:
+        """Return all matching values in source order."""
         key = name.casefold()
         return [
             field.decoded_value if decoded else field.unfolded_value
@@ -122,16 +180,24 @@ class HeaderCollection(Sequence[HeaderField]):
         ]
 
     def occurrences(self, name: str) -> list[HeaderField]:
+        """Return all matching :class:`HeaderField` objects in source order."""
         key = name.casefold()
         return [field for field in self._fields if field.name.casefold() == key]
 
     def to_list(self) -> list[dict]:
+        """Serialize every occurrence in source order."""
         return [field.to_dict() for field in self._fields]
 
 
 @dataclass(frozen=True)
 class TransferEncodingValue:
-    """One lossless Content-Transfer-Encoding value."""
+    """Represent a known or extension Content-Transfer-Encoding token.
+
+    Attributes:
+        raw_value: Normalized lowercase token from the field.
+        kind: Matching known :class:`TransferEncoding` or ``UNKNOWN``.
+        is_extension: Whether the token is not one of the standard encodings.
+    """
 
     raw_value: str
     kind: TransferEncoding
@@ -139,6 +205,7 @@ class TransferEncodingValue:
 
     @classmethod
     def parse(cls, value: str | None):
+        """Classify a transfer-encoding token without discarding extensions."""
         token = (value or "7bit").strip().lower()
         known = {
             "7bit": TransferEncoding.SEVEN_BIT,
@@ -151,6 +218,7 @@ class TransferEncodingValue:
         return cls(token, kind, kind == TransferEncoding.UNKNOWN)
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible transfer-encoding record."""
         return {
             "raw_value": self.raw_value,
             "kind": self.kind.value,
@@ -160,11 +228,20 @@ class TransferEncodingValue:
 
 @dataclass(frozen=True)
 class AddressGroup:
+    """Represent a named or empty address group.
+
+    Attributes:
+        display_name: Group phrase preceding the colon.
+        addresses: Ordered member mailboxes.
+        raw_value: Source address-list value retained for diagnostics or display.
+    """
+
     display_name: str
     addresses: tuple
     raw_value: str = ""
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible group and its member mailboxes."""
         return {
             "display_name": self.display_name,
             "addresses": [address.to_dict() for address in self.addresses],
@@ -174,6 +251,16 @@ class AddressGroup:
 
 @dataclass(frozen=True)
 class ParsedMessageID:
+    """Retain raw and decomposed forms of an Internet message identifier.
+
+    Attributes:
+        raw_value: Source value, normally including angle brackets.
+        value: Identifier without surrounding angle brackets.
+        left: Identifier portion before ``@``.
+        right: Identifier portion after ``@``.
+        valid: Whether the source matched the supported msg-id syntax.
+    """
+
     raw_value: str
     value: str
     left: str
@@ -181,17 +268,28 @@ class ParsedMessageID:
     valid: bool = True
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible message-identifier record."""
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class ParsedDateTime:
+    """Retain a source date together with its parsed Python value.
+
+    Attributes:
+        raw_value: Original date-time field value.
+        value: Parsed timezone-aware or naive datetime, or ``None``.
+        valid: Whether parsing succeeded.
+        obsolete: Whether accepted obsolete date syntax was detected.
+    """
+
     raw_value: str
     value: datetime | None
     valid: bool
     obsolete: bool = False
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible date record using ISO 8601 text."""
         return {
             "raw_value": self.raw_value,
             "value": self.value.isoformat() if self.value else None,
@@ -202,39 +300,67 @@ class ParsedDateTime:
 
 @dataclass(frozen=True)
 class MessagePartialInfo:
-    """RFC 2046 message/partial reassembly metadata."""
+    """Represent RFC 2046 ``message/partial`` reassembly metadata.
+
+    Attributes:
+        id: Identifier shared by all fragments.
+        number: One-based fragment number.
+        total: Declared total fragment count when present.
+    """
 
     id: str
     number: int | None
     total: int | None
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible fragment metadata record."""
         return asdict(self)
 
 
 @dataclass(frozen=True)
 class ExternalBodyAccessInfo:
-    """RFC 2046 message/external-body access metadata."""
+    """Represent RFC 2046 ``message/external-body`` access metadata.
+
+    Attributes:
+        access_type: Mechanism used to retrieve the external body.
+        parameters: Complete decoded Content-Type parameter mapping.
+    """
 
     access_type: str
     parameters: dict
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible external-body metadata record."""
         return {"access_type": self.access_type, "parameters": dict(self.parameters)}
 
 
 @dataclass
 class ResentBlock:
+    """Group one contiguous set of RFC 5322 Resent fields.
+
+    Attributes:
+        fields: Ordered header occurrences belonging to the block.
+    """
+
     fields: HeaderCollection = field(default_factory=HeaderCollection)
 
     def to_dict(self) -> list[dict]:
+        """Serialize the block as its ordered header-field records."""
         return self.fields.to_list()
 
 
 @dataclass
 class TraceBlock:
+    """Group one Return-Path with its following Received trace fields.
+
+    Attributes:
+        return_path: Unfolded Return-Path value when present.
+        received: Unfolded Received values in source order.
+    """
+
     return_path: str | None = None
     received: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible trace block."""
         return {"return_path": self.return_path, "received": list(self.received)}

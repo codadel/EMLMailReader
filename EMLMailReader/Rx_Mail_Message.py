@@ -1,3 +1,5 @@
+"""Canonical Internet-message and MIME-entity model."""
+
 import json
 import os
 
@@ -8,13 +10,51 @@ from .Custom_Exceptions import FolderNotAvailableError
 
 
 class RxMailMessage:
-    """One parsed Internet message or MIME entity.
+    """Represent one parsed Internet message or MIME entity.
 
-    Version 2 exposes one canonical representation for every field.  The same
-    class represents the root message and every node in its MIME tree.
+    The same class is used for the root message and every node in its recursive
+    MIME tree. Internet-message fields, MIME metadata, source bytes, decoded
+    bodies, child entities, and parser diagnostics therefore remain available
+    through one canonical model.
+
+    Attributes:
+        Headers: Ordered, duplicate-preserving header collection.
+        From: Structured originator address list.
+        Sender: Structured sender address list.
+        ReplyTo: Structured Reply-To address list.
+        To: Structured primary-recipient address list.
+        Cc: Structured carbon-copy address list.
+        Bcc: Structured blind-copy address list.
+        Subject: Decoded Subject field value.
+        Date: Structured parsed Date value or ``None``.
+        MessageID: Structured Message-ID value or ``None``.
+        InReplyTo: Parsed identifiers from the In-Reply-To field.
+        References: Parsed identifiers from the References field.
+        Comments: Decoded Comments field values in source order.
+        Keywords: Decoded Keywords field values in source order.
+        Received: Unfolded Received values in source order.
+        ReturnPath: Unfolded Return-Path value.
+        ResentBlocks: Contiguous structured Resent field groups.
+        TraceBlocks: Structured Return-Path and Received groups.
+        ContentType: Effective and source MIME content type.
+        ContentDisposition: Parsed disposition or ``None``.
+        ContentTransferEncoding: Lossless transfer-encoding value.
+        MimeVersion: Unfolded MIME-Version field value.
+        ContentDescription: Decoded Content-Description value.
+        ContentID: Structured Content-ID value or ``None``.
+        MessagePartial: ``message/partial`` metadata or ``None``.
+        ExternalBodyAccess: ``message/external-body`` metadata or ``None``.
+        RawSource: Source bytes for this entity; exact input bytes at the root.
+        RawBody: Body bytes before content-transfer decoding.
+        DecodedBody: Transfer-decoded leaf payload bytes.
+        Children: Direct child MIME entities.
+        Preamble: Text preceding the first multipart boundary.
+        Epilogue: Text following the closing multipart boundary.
+        Diagnostics: Standards findings attached to this entity.
     """
 
     def __init__(self):
+        """Initialize an empty message using RFC/MIME default field values."""
         self.Headers = HeaderCollection()
         self.From = AddressList()
         self.Sender = AddressList()
@@ -54,10 +94,17 @@ class RxMailMessage:
 
     @property
     def IsMultiPart(self) -> bool:
+        """Return whether the entity is a multipart container or has children."""
         return bool(self.Children) or self.ContentType.MediaType.startswith("multipart/")
 
     @property
     def Body(self) -> str:
+        """Return the preferred decoded text for this MIME subtree.
+
+        Leaves return their decoded text. ``multipart/alternative`` chooses its
+        last non-empty alternative; other containers choose the first non-empty
+        child body.
+        """
         if not self.Children:
             return self._DecodedText
         candidates = [child.Body for child in self.Children if child.Body]
@@ -69,33 +116,43 @@ class RxMailMessage:
 
     @property
     def TextBody(self) -> str:
+        """Return the first decoded ``text/plain`` body in this subtree."""
         if not self.Children:
             return self._DecodedText if self.ContentType.MediaType == "text/plain" else ""
         return next((child.TextBody for child in self.Children if child.TextBody), "")
 
     @property
     def HtmlBody(self) -> str:
+        """Return the first decoded ``text/html`` body in this subtree."""
         if not self.Children:
             return self._DecodedText if self.ContentType.MediaType == "text/html" else ""
         return next((child.HtmlBody for child in self.Children if child.HtmlBody), "")
 
     @property
     def Name(self) -> str:
+        """Return the disposition filename or fallback Content-Type name."""
         if self.ContentDisposition and self.ContentDisposition.FileName:
             return self.ContentDisposition.FileName
         return self.ContentType.Name
 
     @property
     def IsInline(self) -> bool:
+        """Return whether the entity has an explicit inline disposition."""
         return bool(self.ContentDisposition and self.ContentDisposition.DispositionType == "inline")
 
     @property
     def IsAttachment(self) -> bool:
+        """Return whether the entity should be exposed as an attachment.
+
+        Explicit attachment dispositions qualify. A named entity also qualifies
+        unless it is explicitly inline.
+        """
         disposition = self.ContentDisposition.DispositionType if self.ContentDisposition else ""
         return disposition == "attachment" or (bool(self.Name) and disposition != "inline")
 
     @property
     def Attachments(self) -> tuple["RxMailMessage", ...]:
+        """Return attachment entities in this subtree as an immutable tuple."""
         attachments = [self] if self.IsAttachment else []
         for child in self.Children:
             attachments.extend(child.Attachments)
@@ -103,17 +160,23 @@ class RxMailMessage:
 
     @property
     def InlineResources(self) -> tuple["RxMailMessage", ...]:
+        """Return explicitly inline entities in this subtree as an immutable tuple."""
         resources = [self] if self.IsInline else []
         for child in self.Children:
             resources.extend(child.InlineResources)
         return tuple(resources)
 
     def export_as_json(self) -> str:
-        """Serialize the sole version 2 structured schema."""
+        """Serialize the canonical recursive schema as Unicode-preserving JSON."""
         return json.dumps(self.to_dict(), ensure_ascii=False)
 
     def to_dict(self) -> dict:
-        """Return the complete structured version 2 schema."""
+        """Return the complete JSON-compatible canonical message schema.
+
+        Source and decoded byte payloads are intentionally omitted. Attachment
+        and inline-resource views are not duplicated because those entities
+        already appear recursively under ``children``.
+        """
         return {
             "schema_version": 2,
             "headers": self.Headers.to_list(),
@@ -156,7 +219,18 @@ class RxMailMessage:
         }
 
     def save_attachments(self, TargetFolderPath: str):
-        """Save all attachment MIME parts to an existing directory."""
+        """Write every attachment payload in this subtree to a directory.
+
+        Filenames are reduced to their basename; empty or unsafe basename-only
+        values use ``attachment``. Existing files with the same name are
+        overwritten.
+
+        Args:
+            TargetFolderPath: Existing destination directory.
+
+        Raises:
+            FolderNotAvailableError: If the destination directory is missing.
+        """
         if not os.path.isdir(TargetFolderPath):
             raise FolderNotAvailableError(TargetFolderPath)
         for attachment in self.Attachments:

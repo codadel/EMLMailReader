@@ -1,16 +1,28 @@
+"""Structured representation of a MIME Content-Type field."""
+
 from email.message import Message
 from email.policy import default
 
 
 class ContentType:
-    """
-    A class to represent the Content-Type header of a MIME entity.
+    """Represent the effective and source MIME content type for one entity.
 
-    This class parses and stores information from the Content-Type header,
-    including media type, character set, boundary values for multipart content,
-    and name parameters as defined in RFC 2045.
+    The class preserves whether Content-Type was explicit, retains all decoded
+    parameters, and exposes frequently used MIME values as dedicated
+    attributes.
+
+    Attributes:
+        MediaType: Effective lowercase ``type/subtype`` value.
+        Charset: Declared text charset, defaulting to MIME US-ASCII.
+        Boundary: Multipart boundary or an empty string.
+        Name: Suggested content name from the ``name`` parameter.
+        Parameters: All decoded parameters keyed by lowercase name.
+        RawValue: Original Content-Type field value, excluding the field name.
+        IsExplicit: Whether the source contained a Content-Type field.
     """
+
     def __init__(self):
+        """Initialize the RFC 2045 default ``text/plain; charset=us-ascii``."""
         self.MediaType = "text/plain"
         """The main media type and subtype (e.g., 'text/plain', 'image/jpeg')."""
         self.Charset = "us-ascii"
@@ -25,15 +37,12 @@ class ContentType:
         self.IsExplicit = False
 
     def parse(self, ContentTypeString: str | None = None, *, effective_media_type: str | None = None):
-        """
-        Parses a Content-Type header string and populates the object's properties.
+        """Parse a Content-Type value and replace this instance's metadata.
 
-        This method extracts the media type and associated parameters (charset, boundary, name)
-        from the header string. If no Content-Type is provided or it's invalid, defaults to
-        'text/plain;charset=us-ascii' as specified in RFC 2045.
-
-        :param ContentTypeString: The Content-Type header value to parse.
-        :returns: None - modifies the object's properties in place.
+        Args:
+            ContentTypeString: Source field value, or ``None`` when omitted.
+            effective_media_type: Media type inferred by the MIME parser when
+                no explicit field exists. Defaults to ``text/plain``.
         """
         raw_value = (ContentTypeString or "").strip()
         value = raw_value or (effective_media_type or "text/plain")
@@ -49,26 +58,21 @@ class ContentType:
         self.Name = self.Parameters.get("name", "")
 
     def get_parameter(self, name: str, default=None):
+        """Return a decoded parameter by case-insensitive name."""
         return self.Parameters.get(name.lower(), default)
 
     def to_header_value(self) -> str:
-        """Return an RFC-compliant value including all parameters."""
+        """Return the normalized Content-Type value including its parameters."""
         message = Message(policy=default)
         message["Content-Type"] = self.RawValue or self.MediaType
         return str(message["Content-Type"])
 
     def __str__(self) -> str:
-        """
-        Returns a formatted Content-Type header string representation.
-
-        This method reconstructs the Content-Type header string from the object's
-        properties, including the media type and any defined parameters (charset, name).
-
-        :returns: Properly formatted Content-Type header string.
-        """
+        """Return the normalized Content-Type field value."""
         return self.to_header_value()
 
     def to_dict(self) -> dict:
+        """Return a JSON-compatible representation of the content type."""
         return {
             "media_type": self.MediaType,
             "charset": self.Charset,

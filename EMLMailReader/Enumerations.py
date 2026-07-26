@@ -1,13 +1,11 @@
+"""Enumerations shared by message parsing, decoding, and logging."""
+
 from enum import Enum
 
 
 class TransferEncoding(str, Enum):
-    """
-    Enumeration representing different content transfer encoding methods for MIME entities.
+    """Classify standard MIME Content-Transfer-Encoding tokens."""
 
-    These encoding methods define how binary or non-ASCII content is represented
-    in text-based email messages as specified in RFC 2045.
-    """
     BASE64 = "base64"
     """Base64 encoding for binary data and non-ASCII text."""
     SEVEN_BIT = "7bit"
@@ -23,11 +21,8 @@ class TransferEncoding(str, Enum):
 
 
 class LoggingLevel(Enum):
-    """
-    Enumeration defining different severity levels for logging messages.
+    """Select the Python logging severity used by :class:`Logger`."""
 
-    These levels help categorize log entries by importance and facilitate filtering.
-    """
     DEBUG = 1
     """Detailed diagnostic information for troubleshooting."""
     INFO = 2
@@ -39,11 +34,8 @@ class LoggingLevel(Enum):
 
 
 class LoggingMode(Enum):
-    """
-    Enumeration defining different output destinations for logging messages.
+    """Select whether parser diagnostics are disabled, logged, or written."""
 
-    This controls where log messages are written during EML file processing.
-    """
     CONSOLE = 1
     """Log messages are printed to the console/terminal."""
     FILE = 2

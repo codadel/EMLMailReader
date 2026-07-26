@@ -1,38 +1,42 @@
-class FileMissingError(Exception):
-    """
-    A custom exception class to report when a required file is missing or inaccessible.
+"""Exceptions raised by EMLMailReader filesystem operations."""
 
-    This exception is raised when attempting to read an EML file that doesn't exist
-    at the specified path or when file access permissions are insufficient.
+
+class FileMissingError(Exception):
+    """Report that an EML source file is unavailable.
+
+    ``MailReader.get_email`` catches this exception and normally exposes the
+    failure as a ``None`` result, but the type remains public for callers that
+    use lower-level workflows.
+
+    Attributes:
+        filePath: Path that could not be found or accessed.
     """
+
     def __init__(self, filePath: str):
+        """Store the unavailable file path."""
         self.filePath = filePath
         """The file path that was not found or is inaccessible."""
 
     def __str__(self):
-        """
-        Returns a formatted error message indicating the missing file path.
-
-        :returns: Formatted error message string with file path details.
-        """
+        """Return an error message containing the unavailable file path."""
         return f"Error occurred on line {self.__traceback__.tb_lineno}:> File - '{self.filePath}' is either not available at location or not accessible."
 
 
 class FolderNotAvailableError(Exception):
-    """
-    A custom exception class to report when a required directory is missing or inaccessible.
+    """Report that an output directory is unavailable.
 
-    This exception is raised when attempting to access a folder that doesn't exist
-    or when directory access permissions are insufficient for operations like saving attachments.
+    Attachment saving and file logging require an existing target directory and
+    raise this exception when that precondition is not met.
+
+    Attributes:
+        folderPath: Directory path that could not be used.
     """
+
     def __init__(self, folderPath: str):
+        """Store the unavailable directory path."""
         self.folderPath = folderPath
         """The folder path that was not found or is inaccessible."""
 
     def __str__(self):
-        """
-        Returns a formatted error message indicating the missing folder path.
-
-        :returns: Formatted error message string with folder path details.
-        """
+        """Return an error message containing the unavailable directory path."""
         return f"Error occurred on line {self.__traceback__.tb_lineno}:> Folder - '{self.folderPath}' is either not accessible or does not exist.."

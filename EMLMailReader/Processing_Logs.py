@@ -1,31 +1,34 @@
+"""Configuration and routing helpers for parser diagnostic logging."""
+
 import os
 import logging
 import datetime
+
 from .Enumerations import LoggingMode, LoggingLevel
 from .Custom_Exceptions import FolderNotAvailableError
 
 
 class Logger:
-    """
-    A static utility class for managing logging configuration and output during EML processing.
+    """Configure and write parser diagnostics through Python's root logger.
 
-    This class provides centralized logging functionality with support for console output,
-    file output, or disabled logging. It integrates with Python's standard logging module
-    to provide consistent log formatting and multiple output destinations.
+    The utility is stateless. Console and file configuration deliberately
+    replace existing root handlers so repeated reader configuration is
+    deterministic.
     """
 
     @staticmethod
     def set_configuration(logging_mode: LoggingMode, target_folder: str = str()) -> str:
-        """
-        Configures the logging system with the specified output mode and destination.
+        """Configure console, file, or disabled parser logging.
 
-        This method initializes Python's logging system with appropriate handlers,
-        formatters, and output destinations. For file logging, it creates timestamped
-        log files in the specified directory.
+        Args:
+            logging_mode: Desired :class:`LoggingMode`.
+            target_folder: Existing directory for a timestamped log file.
 
-        :param logging_mode: Determines where log messages should be output (console, file, or disabled).
-        :param target_folder: Directory path for log file creation (required only for FILE mode).
-        :returns: Complete path to the created log file, or empty string for console/disabled modes.
+        Returns:
+            Created log path for file mode, otherwise an empty string.
+
+        Raises:
+            FolderNotAvailableError: If file mode has no usable target directory.
         """
         complete_file_path = str()
         if logging_mode == LoggingMode.CONSOLE:
@@ -54,15 +57,12 @@ class Logger:
 
     @staticmethod
     def logentry(message: str, logging_level: LoggingLevel):
-        """
-        Creates and outputs a log entry with the specified message and severity level.
+        """Write one message at the requested library logging severity.
 
-        This method routes log messages to the appropriate Python logging function
-        based on the specified logging level, ensuring consistent formatting and output.
-
-        :param message: Text content of the log message to be recorded.
-        :param logging_level: Severity level of the message (DEBUG, INFO, ERROR, CRITICAL).
-        :returns: None - outputs the message through the configured logging system.
+        Args:
+            message: Log message text.
+            logging_level: Severity mapped to the corresponding Python logging
+                function. Unknown values fall back to debug.
         """
         if logging_level == LoggingLevel.INFO:
             logging.info(message)

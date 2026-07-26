@@ -1,3 +1,5 @@
+"""Public package exports for EMLMailReader."""
+
 from .Mail_Reader import MailReader
 from .Rx_Mail_Message import RxMailMessage
 from .Content_Disposition import ContentDisposition
