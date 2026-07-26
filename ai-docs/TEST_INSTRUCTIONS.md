@@ -49,6 +49,10 @@ The suite has a strict boundary:
   `tests/functional/assets/` and `tests/functional/fixtures/` through
   `MailReader.get_email`, and covers filesystem workflows such as attachment
   and log-file writes.
+- `tests/functional/regressions/` contains original EML files from resolved
+  issues. Keep these files byte-for-byte unchanged, protect their checksums in
+  the corresponding regression tests, and assert the behavior that previously
+  failed.
 
 Run only the filesystem-free unit tests:
 
