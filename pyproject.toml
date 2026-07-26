@@ -40,3 +40,4 @@ fail_under = 95
 [project.urls]
 Homepage = "https://github.com/codadel/EMLMailReader"
 Issues = "https://github.com/codadel/EMLMailReader/issues"
+Changelog = "https://github.com/codadel/EMLMailReader/blob/release/changelog.md"

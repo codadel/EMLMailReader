@@ -106,3 +106,154 @@ jobs:
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  record-release:
+    name: Update changelog and create GitHub Release
+    needs:
+      - build-release
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download package distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Generate release notes
+        id: release-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs['build-release'].outputs.version }}
+        run: |
+          tag="v${VERSION}"
+          previous_tag="$(
+            git tag --list 'v[0-9]*' --sort=-v:refname |
+              grep -Fxv "${tag}" |
+              head -n 1 || true
+          )"
+
+          request=(
+            --method POST
+            "repos/${GITHUB_REPOSITORY}/releases/generate-notes"
+            -f "tag_name=${tag}"
+            -f "target_commitish=${tag}"
+          )
+          if [ -n "${previous_tag}" ]; then
+            request+=(-f "previous_tag_name=${previous_tag}")
+          fi
+          gh api "${request[@]}" > generated-release.json
+
+          RELEASE_TAG="${tag}" python <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          generated = json.loads(
+              Path("generated-release.json").read_text(encoding="utf-8")
+          )
+          title = str(generated.get("name") or os.environ["RELEASE_TAG"])
+          title = " ".join(title.splitlines()).strip()
+          body = str(generated.get("body") or "").rstrip()
+          if not body:
+              body = "No release notes were generated."
+
+          Path("release-notes.md").write_text(f"{body}\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"title={title}\n")
+          PY
+
+      - name: Add published version to changelog
+        env:
+          VERSION: ${{ needs['build-release'].outputs.version }}
+        run: |
+          python <<'PY'
+          from datetime import datetime, timezone
+          import os
+          from pathlib import Path
+          import re
+
+          version = os.environ["VERSION"]
+          changelog = Path("changelog.md")
+          text = changelog.read_text(encoding="utf-8")
+          version_pattern = rf"(?m)^## \[{re.escape(version)}\]\("
+          if re.search(version_pattern, text):
+              print(f"changelog.md already contains version {version}")
+              raise SystemExit(0)
+
+          notes = Path("release-notes.md").read_text(encoding="utf-8").strip()
+          notes = re.sub(
+              r"(?m)^(#+)(?=\s)",
+              lambda match: f"#{match.group(1)}",
+              notes,
+          )
+          published = datetime.now(timezone.utc).date().isoformat()
+          heading = (
+              f"## [{version}]"
+              f"(https://pypi.org/project/emlmailreader/{version}/)"
+              f" - {published}"
+          )
+          entry = f"{heading}\n\n{notes}\n\n"
+
+          first_version = re.search(r"(?m)^## \[\d+\.\d+\.\d+\]", text)
+          if first_version:
+              updated = text[:first_version.start()] + entry + text[first_version.start():]
+          else:
+              updated = f"{text.rstrip()}\n\n{entry}"
+          changelog.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Commit changelog
+        env:
+          VERSION: ${{ needs['build-release'].outputs.version }}
+        run: |
+          if git diff --quiet -- changelog.md; then
+            echo "No changelog update is required"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add changelog.md
+          git commit -m "docs(release): add v${VERSION} changelog [skip release]"
+          git push origin HEAD:release
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TITLE: ${{ steps.release-notes.outputs.title }}
+          VERSION: ${{ needs['build-release'].outputs.version }}
+        run: |
+          tag="v${VERSION}"
+          if release_is_draft="$(
+            gh release view "${tag}" --json isDraft --jq '.isDraft' 2>/dev/null
+          )"; then
+            if [ "${release_is_draft}" = "true" ]; then
+              gh release upload "${tag}" dist/* --clobber
+              gh release edit "${tag}" \
+                --title "${RELEASE_TITLE}" \
+                --notes-file release-notes.md \
+                --draft=false \
+                --verify-tag
+            else
+              echo "GitHub Release ${tag} already exists"
+            fi
+          else
+            gh release create "${tag}" dist/* \
+              --title "${RELEASE_TITLE}" \
+              --notes-file release-notes.md \
+              --verify-tag
+          fi

@@ -7,9 +7,15 @@ This project publishes `emlmailreader` to PyPI from the `release` branch.
 1. Merge or push the changes intended for release into the `release` branch.
 2. The `Release to PyPI` GitHub Actions workflow runs the pytest suite.
 3. If tests pass, the workflow increments the patch version in `pyproject.toml`.
-4. The workflow commits the version bump with a `[skip release]` marker, tags it as `vX.Y.Z`, builds the package, and publishes it to PyPI.
+4. The workflow commits the version bump with a `[skip release]` marker, tags
+   it as `vX.Y.Z`, builds the package, and publishes it to PyPI.
+5. After PyPI publishing succeeds, the workflow generates release notes,
+   prepends the published version to `changelog.md`, commits that update with a
+   `[skip release]` marker, and creates a GitHub Release with the wheel and
+   source distribution attached.
 
-The `[skip release]` marker prevents the workflow's own version-bump commit from creating another release.
+The `[skip release]` marker prevents the workflow's own version-bump and
+changelog commits from creating another release.
 
 ## PyPI Trusted Publishing Setup
 
@@ -26,8 +32,12 @@ No `PYPI_API_TOKEN` GitHub secret is required. The publish job uses GitHub Actio
 ## Notes
 
 - The workflow performs patch-only version bumps, for example `1.0.3` to `1.0.4`.
-- The `release` branch must allow GitHub Actions to push the version-bump commit and tag using `GITHUB_TOKEN`.
+- The `release` branch must allow GitHub Actions to push the version-bump
+  commit, changelog commit, and tag using `GITHUB_TOKEN`.
 - If branch protection requires pull requests or blocks workflow pushes, update the branch protection rules before relying on this release flow.
+- Do not add an unreleased or future version entry to `changelog.md`. The
+  workflow adds the published version, UTC publication date, and
+  GitHub-generated release notes only after PyPI publishing succeeds.
 
 ## Agent safeguards
 
