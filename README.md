@@ -200,6 +200,45 @@ file_reader = MailReader(
 )
 ```
 
+## Use with AI coding agents
+
+The repository includes the [`use-emlmailreader`](skill/use-emlmailreader/)
+agent skill. It helps AI coding agents build typed and tested email ingestion
+and analytics code with the canonical API, including structured addresses,
+MIME traversal, diagnostics, resource limits, migration from v1.0.4, and
+privacy-conscious handling.
+
+To install it, copy the complete skill directory into the location where your
+AI coding system discovers reusable skills:
+
+```bash
+cp -R skill/use-emlmailreader /path/to/your/skills-directory/
+```
+
+If the system supports repository-based skill installation, point it to:
+
+```text
+Repository: codadel/EMLMailReader
+Skill path: skill/use-emlmailreader
+```
+
+Use the repository tag that matches the installed EMLMailReader major version,
+and preserve the directory structure so `SKILL.md` can find its `references/`.
+Follow the AI system's normal process for refreshing or discovering newly
+installed skills. If automatic skill discovery is unavailable, provide
+`SKILL.md` and the relevant reference files as task instructions.
+
+Request the skill by name with a prompt such as:
+
+```text
+Use the use-emlmailreader skill to build a typed JSONL pipeline that extracts
+participants, thread identifiers, attachment metadata, and parser diagnostics
+from a directory of EML files.
+```
+
+The skill provides development guidance; the Python package must still be
+installed separately.
+
 ## Documentation
 
 The [documentation index](docs/index.md) links to the public API reference:
