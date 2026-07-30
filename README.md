@@ -6,7 +6,7 @@
 
 # EMLMailReader
 
-EMLMailReader is a dependency-free Python library for parsing EML files and
+EMLMailReader is a Python library for parsing EML files and
 in-memory Internet messages. It produces a structured message and MIME tree,
 preserves source bytes and ordered headers, decodes message content, and
 reports recoverable syntax problems through diagnostics.
