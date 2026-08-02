@@ -65,8 +65,8 @@ commands.
 ## Continuous integration
 
 The quality workflow runs on pull requests and pushes to `develop` or feature
-branches. The release workflow runs the same checks before changing a version,
-creating a tag, building, or publishing.
+branches. The release workflow runs the same checks before creating a tag,
+building the package and matching documentation, or publishing either one.
 
 Both workflows are read-only during quality validation and use normal
 fail-fast GitHub Actions behavior. A failed formatting, lint, typing, test, or

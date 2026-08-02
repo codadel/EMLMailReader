@@ -1,27 +1,60 @@
-# Release Process
+# Release process
 
-This project publishes `emlmailreader` to PyPI from the `release` branch.
+The `Release package and documentation` GitHub Actions workflow publishes
+`emlmailreader` and its matching major-version documentation from the
+`release` branch.
 
-## Automated Release Flow
+## Version source of truth
 
-1. Merge or push the changes intended for release into the `release` branch.
-2. The `Release to PyPI` GitHub Actions workflow checks Ruff formatting,
-   Ruff lint rules, strict MyPy analysis, tests, and branch coverage.
-3. If every check passes, the workflow increments the patch version in
-   `pyproject.toml`.
-4. The workflow commits the version bump with a `[skip release]` marker, tags
-   it as `vX.Y.Z`, builds the package, and publishes it to PyPI.
-5. After PyPI publishing succeeds, the workflow generates release notes,
-   prepends the published version to `changelog.md`, commits that update with a
-   `[skip release]` marker, and creates a GitHub Release with the wheel and
-   source distribution attached.
+The workflow uses the exact `[project].version` value in `pyproject.toml`. It
+does not increment or otherwise modify that version.
 
-The `[skip release]` marker prevents the workflow's own version-bump and
-changelog commits from creating another release.
+Before merging a release into `release`, set an unused stable semantic version
+such as `2.0.0`. The workflow derives the documentation version from its major
+component:
 
-## PyPI Trusted Publishing Setup
+| Package version | Documentation source | Mike version |
+| --- | --- | --- |
+| `1.0.4` | `docs/v1/` and `mkdocs.v1.yml` | `v1` |
+| `2.0.0` | `docs/v2/` and `mkdocs.v2.yml` | `v2` |
+| `2.1.3` | `docs/v2/` and `mkdocs.v2.yml` | `v2` |
 
-Before the first automated release, configure PyPI Trusted Publishing for this project:
+Run this check locally to see what a release would select:
+
+```bash
+mise run release-metadata
+```
+
+The command fails if the version is not exactly `MAJOR.MINOR.PATCH` or if the
+matching documentation directory or configuration is missing.
+
+## Automated release flow
+
+1. Merge or push the authorized release commit into `release`.
+2. The workflow reads the package version, derives `vN`, and rejects an
+   existing `vMAJOR.MINOR.PATCH` tag.
+3. It runs Ruff formatting and lint checks, strict MyPy analysis, the complete
+   test suite with branch coverage, and a strict build of the matching docs.
+4. It builds the wheel and source distribution, uploads them as a workflow
+   artifact, and tags the exact release commit.
+5. PyPI Trusted Publishing publishes those distributions.
+6. After PyPI succeeds, Mike rebuilds the matching documentation source,
+   updates that major version on `gh-pages`, and points `latest` and `stable`
+   to it. Other major versions remain untouched.
+7. GitHub Pages deploys the complete `gh-pages` snapshot containing every
+   published documentation version.
+8. After package and documentation publication succeed, the workflow generates
+   release notes, prepends the release to `changelog.md`, and creates a GitHub
+   Release with the distributions attached.
+
+The changelog commit contains `[skip release]`, preventing the workflow's own
+commit from starting another publication.
+
+## Repository configuration
+
+### PyPI Trusted Publishing
+
+Configure a trusted publisher for:
 
 - PyPI project: `emlmailreader`
 - GitHub owner: `codadel`
@@ -29,35 +62,39 @@ Before the first automated release, configure PyPI Trusted Publishing for this p
 - Workflow filename: `release.yml`
 - Environment: `pypi`
 
-No `PYPI_API_TOKEN` GitHub secret is required. The publish job uses GitHub Actions OIDC with `pypa/gh-action-pypi-publish`.
+No `PYPI_API_TOKEN` secret is required. The `publish_package` job uses GitHub
+Actions OIDC through `pypa/gh-action-pypi-publish`.
 
-## Notes
+### GitHub Pages
 
-- The workflow performs patch-only version bumps, for example `1.0.3` to `1.0.4`.
-- The `release` branch must allow GitHub Actions to push the version-bump
-  commit, changelog commit, and tag using `GITHUB_TOKEN`.
-- If branch protection requires pull requests or blocks workflow pushes, update the branch protection rules before relying on this release flow.
-- Do not add an unreleased or future version entry to `changelog.md`. The
-  workflow adds the published version, UTC publication date, and
-  GitHub-generated release notes only after PyPI publishing succeeds.
+Under **Settings → Pages**, select **GitHub Actions** as the source. Allow the
+`release` branch to deploy through the `github-pages` environment.
 
-## Agent safeguards
+The workflow also needs permission to push:
 
-Version changes, merges into `release`, tags, release-workflow changes, and
-publishing require explicit user authorization. Do not perform them as an
-incidental part of implementation, testing, or documentation work.
+- the release tag;
+- the generated changelog commit to `release`; and
+- Mike's generated documentation commits to `gh-pages`.
 
-For a major release, confirm the intended version with the user and update it
-before triggering this workflow. The current workflow increments only the
-patch component and cannot select a new major version by itself.
+If branch protection blocks GitHub Actions from making those changes, update
+the repository rules before starting a release.
 
-Before authorized release work:
+## Release safeguards
 
-1. Run the complete check-only quality and pre-commit suites.
-2. Run branch coverage and satisfy the per-module and total thresholds.
-3. Verify `README.md` and `docs/` against the shipped API.
-4. Build and inspect the package distributions.
-5. Confirm the intended semantic version and release branch with the user.
+Version changes, merges into `release`, tags, workflow dispatches, and package
+or documentation publishing require explicit user authorization. Do not
+perform them as an incidental part of implementation or validation.
 
-Release validation never applies formatting or lint fixes. A failed check
-terminates the workflow before any version, tag, or publication change.
+Before an authorized release:
+
+1. Confirm the intended semantic version and release commit.
+2. Run `mise run release-metadata`.
+3. Run `mise run quality` and `mise run pre-commit`.
+4. Verify `README.md` and the selected `docs/vN/` source against the shipped
+   API.
+5. Build and inspect the package distributions.
+6. Confirm that the corresponding version does not already exist on PyPI or as
+   a Git tag.
+
+Release validation is check-only. A failed check terminates the workflow before
+the tag or any publication is created.

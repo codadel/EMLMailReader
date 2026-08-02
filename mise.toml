@@ -91,3 +91,7 @@ raw = true
 description = "Preview all versions currently published to gh-pages"
 run = "mike serve --branch gh-pages"
 raw = true
+
+[tasks.release-metadata]
+description = "Validate and display package and documentation release metadata"
+run = "python scripts/release_metadata.py"

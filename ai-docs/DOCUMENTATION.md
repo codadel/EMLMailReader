@@ -64,14 +64,23 @@ The generated `site/` directory is ignored and must not be committed.
 
 ## Publishing model
 
-The release workflow will read the exact package version from
-`pyproject.toml`, derive its major version, build the matching configuration,
-publish the package to PyPI, and then deploy that major-version documentation
-through Mike and GitHub Pages.
+The unified release workflow reads the exact package version from
+`pyproject.toml`, derives its major version, builds the matching configuration,
+publishes the package to PyPI, and then deploys that major-version
+documentation through Mike and GitHub Pages.
 
 For example, package version `2.0.1` selects `mkdocs.v2.yml`, updates `/v2/`,
 and keeps `/v1/` unchanged. Stable releases move the `latest` and `stable`
 aliases to the published major version.
+
+The workflow does not infer or increment the next package version. Release
+preparation must set the intended `MAJOR.MINOR.PATCH` value explicitly. Run
+`mise run release-metadata` to validate the package-to-documentation mapping
+without publishing anything.
+
+Documentation is published only by `.github/workflows/release.yml`; there is no
+separate branch-specific documentation deployment. See
+[Release process](RELEASE.md) for the complete order and repository settings.
 
 Repository administrators must keep **GitHub Actions** selected under
 **Settings → Pages** and allow the `release` branch to deploy through the
