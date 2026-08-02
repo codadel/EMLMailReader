@@ -74,7 +74,7 @@ class TextEncoding:
 
         :param encoded_string: Potentially encoded header string to decode.
         :returns: Decoded Unicode string, or original string if no encoding detected.
-        :raises: InvalidEncodingError if an unsupported encoding method is encountered.
+        :raises InvalidEncodingError: If an unsupported encoding method is encountered.
         """
         encoded_string = encoded_string.strip()
         if encoded_string.startswith("=?"):
