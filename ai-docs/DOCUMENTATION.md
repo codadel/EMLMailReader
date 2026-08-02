@@ -75,9 +75,15 @@ aliases, and makes `latest` the portal default:
 mise run docs-deploy-v1
 ```
 
-The publishing workflow performs the same deployment after a successful push
-build on `docs/v1-portal`, or when manually dispatched. Pull requests use a
-separate read-only workflow that runs the strict build.
+The publishing workflow performs the same mike deployment after a successful
+push build on `docs/v1-portal`, packages the complete version store as a Pages
+artifact, and deploys it through GitHub's official Pages action. It can also be
+run manually. Pull requests use a separate read-only workflow that runs the
+strict build.
+
+Repository administrators must select **GitHub Actions** as the publishing
+source under **Settings → Pages**. This is a one-time repository setting; the
+workflow handles later portal deployments.
 
 When v2 is released, publish it under `/v2/` and move `stable` and `latest` to
 v2. The generated v1 snapshot remains available and selectable.
