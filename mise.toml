@@ -3,6 +3,7 @@ python = "3.12"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
+NO_MKDOCS_2_WARNING = "1"
 
 [tasks.setup]
 description = "Install local package and project requirements"
@@ -27,10 +28,12 @@ run = "python -m mkdocs build --strict"
 [tasks.docs-serve]
 description = "Preview documentation locally"
 run = "python -m mkdocs serve"
+raw = true
 
 [tasks.docs-versioned-serve]
 description = "Preview all versions currently published to gh-pages"
 run = "mike serve --branch gh-pages"
+raw = true
 
 [tasks.docs-deploy-v1]
 description = "Publish the v1 documentation and make it the current stable version"
