@@ -1,0 +1,109 @@
+site_name: EMLMailReader
+site_description: Documentation for the EMLMailReader v1 release line
+site_url: https://codadel.github.io/EMLMailReader/
+repo_name: codadel/EMLMailReader
+repo_url: https://github.com/codadel/EMLMailReader
+edit_uri: edit/docs/v1-portal/docs/
+docs_dir: docs
+site_dir: site
+watch:
+  - EMLMailReader
+
+theme:
+  name: material
+  language: en
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mike:
+      alias_type: redirect
+      canonical_version: latest
+      version_selector: true
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - .
+          options:
+            docstring_style: sphinx
+            filters:
+              - "!^_"
+            members_order: source
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: true
+            show_signature_annotations: true
+            show_source: false
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Parse your first email: getting-started/first-email.md
+      - Understand the message model: getting-started/message-model.md
+  - Guides:
+      - Build analytics records: guides/analytics.md
+      - Process a folder of emails: guides/batch-processing.md
+      - Work with addresses: guides/addresses.md
+      - Work with attachments: guides/attachments.md
+      - Export parsed data: guides/exporting.md
+      - Logging and failures: guides/logging-errors.md
+  - Concepts:
+      - Email and MIME essentials: concepts/email-mime.md
+      - v1 behavior and limitations: concepts/v1-behavior.md
+      - Documentation versions: concepts/versioning.md
+  - API reference:
+      - Overview: reference/index.md
+      - Core parser and message: reference/core.md
+      - Addresses: reference/addresses.md
+      - Attachments: reference/attachments.md
+      - MIME types and enums: reference/mime.md
+      - Utilities and exceptions: reference/utilities.md

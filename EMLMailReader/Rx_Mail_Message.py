@@ -185,7 +185,7 @@ class RxMailMessage:
 
         :param TargetFolderPath: Directory path where attachment files should be saved.
         :returns: None - creates files in the specified directory.
-        :raises: FolderNotAvailableError if the target directory doesn't exist.
+        :raises FolderNotAvailableError: If the target directory doesn't exist.
         """
         if os.path.exists(TargetFolderPath):
             for attachment in self.Attachments.export_as_list():

@@ -15,3 +15,23 @@ run = "python -m unittest discover tests -v"
 [tasks.coverage]
 description = "Run tests with coverage"
 run = "coverage run --source=EMLMailReader -m unittest discover tests && coverage report"
+
+[tasks.docs-setup]
+description = "Install documentation dependencies"
+run = "python -m pip install -r requirements-docs.txt"
+
+[tasks.docs-build]
+description = "Build documentation with strict validation"
+run = "python -m mkdocs build --strict"
+
+[tasks.docs-serve]
+description = "Preview documentation locally"
+run = "python -m mkdocs serve"
+
+[tasks.docs-versioned-serve]
+description = "Preview all versions currently published to gh-pages"
+run = "mike serve --branch gh-pages"
+
+[tasks.docs-deploy-v1]
+description = "Publish the v1 documentation and make it the current stable version"
+run = "mike deploy --branch gh-pages --push --update-aliases --title 'v1 · 1.0.4' v1 latest stable && mike set-default --branch gh-pages --push latest"
