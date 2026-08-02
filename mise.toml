@@ -3,6 +3,7 @@ python = "3.12"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
+NO_MKDOCS_2_WARNING = "1"
 
 [tasks.setup]
 description = "Install local package and project requirements"
@@ -72,3 +73,21 @@ ruff check .
 mypy EMLMailReader tests
 pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-fail-under=95
 """
+
+[tasks.docs-setup]
+description = "Install documentation dependencies"
+run = "python -m pip install -r requirements-docs.txt"
+
+[tasks.docs-build]
+description = "Strictly build a documentation major version (defaults to v2)"
+run = "python scripts/docs.py build"
+
+[tasks.docs-serve]
+description = "Preview a documentation major version (defaults to v2)"
+run = "python scripts/docs.py serve"
+raw = true
+
+[tasks.docs-versioned-serve]
+description = "Preview all versions currently published to gh-pages"
+run = "mike serve --branch gh-pages"
+raw = true

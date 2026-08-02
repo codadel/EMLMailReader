@@ -239,20 +239,15 @@ from a directory of EML files.
 The skill provides development guidance; the Python package must still be
 installed separately.
 
-## Documentation
-
-The [documentation index](docs/index.md) links to the public API reference:
-
-- [MailReader](docs/MailReader.md)
-- [RxMailMessage](docs/RxMailMessage.md)
-- [AddressList](docs/AddressList.md)
-- [Structured types](docs/StructuredTypes.md)
-- [Enumerations](docs/Enumerations.md)
-- [Exceptions](docs/Exceptions.md)
-
 ## License
 
 EMLMailReader is distributed under the terms in [LICENSE](LICENSE).
+
+## Documentation
+
+The [documentation portal](https://codadel.github.io/EMLMailReader/latest/)
+contains task-oriented guides, versioned behavior notes, migration guidance,
+and the generated API reference.
 
 ## Support
 
