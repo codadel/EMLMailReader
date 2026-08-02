@@ -49,7 +49,7 @@ This library is distributed under the terms specified in the LICENSE file.
 
 ## Documentation
 
-The [documentation portal](https://codadel.github.io/EMLMailReader/) contains
+The [documentation portal](https://codadel.github.io/EMLMailReader/latest/) contains
 task-oriented guides, v1 behavior notes, and the generated API reference.
 
 ## Support
