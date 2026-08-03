@@ -109,9 +109,11 @@ mise run quality
 mise run pre-commit
 ```
 
-The pull-request and release workflows run formatting, lint, MyPy, tests, and
-coverage as sequential check-only commands. The first failure terminates the
-job; no CI command changes repository files.
+The pull-request, TestPyPI, and release workflows run formatting, lint, MyPy,
+tests, and coverage as sequential check-only commands. The first failure
+terminates the quality job; no CI command changes repository files. The
+TestPyPI publishing job runs only after its quality-and-package-build job has
+succeeded.
 
 Functional tests include package-installation checks, such as verifying that
 the PEP 561 `py.typed` marker is shipped.

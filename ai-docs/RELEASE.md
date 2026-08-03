@@ -1,8 +1,15 @@
 # Release process
 
-The `Release package and documentation` GitHub Actions workflow publishes
-`emlmailreader` and its matching major-version documentation from the
-`release` branch.
+The `Release package and documentation` GitHub Actions workflow runs only when
+a pull request from `develop` into `release` is merged. It publishes
+`emlmailreader` and its matching major-version documentation from that merged
+release commit.
+
+Test publications are handled separately after pull requests merge into
+`develop`. See [TestPyPI candidate publishing](TESTPYPI.md) for automatic RC
+selection and verification. The test workflow cannot tag releases, update the
+changelog, deploy documentation, create a GitHub Release, or access the
+production publishing environment.
 
 ## Version source of truth
 
@@ -30,25 +37,32 @@ matching documentation directory or configuration is missing.
 
 ## Automated release flow
 
-1. Merge or push the authorized release commit into `release`.
-2. The workflow reads the package version, derives `vN`, and rejects an
-   existing `vMAJOR.MINOR.PATCH` tag.
-3. It runs Ruff formatting and lint checks, strict MyPy analysis, the complete
-   test suite with branch coverage, and a strict build of the matching docs.
-4. It builds the wheel and source distribution, uploads them as a workflow
-   artifact, and tags the exact release commit.
-5. PyPI Trusted Publishing publishes those distributions.
-6. After PyPI succeeds, Mike rebuilds the matching documentation source,
-   updates that major version on `gh-pages`, and points `latest` and `stable`
-   to it. Other major versions remain untouched.
-7. GitHub Pages deploys the complete `gh-pages` snapshot containing every
-   published documentation version.
-8. After package and documentation publication succeed, the workflow generates
-   release notes, prepends the release to `changelog.md`, and creates a GitHub
-   Release with the distributions attached.
+1. Merge an authorized pull request from `develop` into `release`.
+2. The read-only validation-and-build gate reads the package version, derives
+   `vN`, rejects an existing `vMAJOR.MINOR.PATCH` tag, runs Ruff, MyPy, tests,
+   branch coverage, and a strict matching-docs build, then builds and uploads
+   the package distributions as an internal workflow artifact.
+3. Only after validation succeeds, the OIDC-enabled PyPI job publishes the
+   distributions.
+4. Only after PyPI succeeds, Mike checks out the validated commit SHA, updates
+   the matching major version on `gh-pages`, points `latest` and `stable` to
+   it, and prepares the complete Pages artifact. Other major versions remain
+   untouched.
+5. Only after documentation publication succeeds, GitHub Pages deploys that
+   artifact.
+6. Only after validation, PyPI publication, and Pages deployment all succeed,
+   the final job generates release notes, prepends the release to
+   `changelog.md`, and creates the tag and GitHub Release at the exact validated
+   commit with the distributions attached.
 
-The changelog commit contains `[skip release]`, preventing the workflow's own
-commit from starting another publication.
+Each downstream job declares its prerequisite jobs with `needs` and explicitly
+requires their results to be `success`. A failed or skipped prerequisite makes
+all dependent release stages skip automatically. Write access and OIDC access
+are granted only to the stages that need them. The release tag is not created
+when package publication or documentation deployment fails.
+
+The workflow listens for merged pull requests targeting `release`, not direct
+pushes. Its changelog commit therefore does not start another release run.
 
 ## Repository configuration
 

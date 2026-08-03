@@ -6,250 +6,69 @@
 
 # EMLMailReader
 
-EMLMailReader is a Python library for parsing EML files and
-in-memory Internet messages. It produces a structured message and MIME tree,
-preserves source bytes and ordered headers, decodes message content, and
-reports recoverable syntax problems through diagnostics.
+EMLMailReader parses local EML files and in-memory Internet messages into
+structured Python objects for inspection, batch processing, and analytics.
+The current release line is v2 and has no runtime dependencies outside the
+Python standard library.
 
-The parser provides receiver-oriented support for RFC 5322, RFC 6854, MIME,
-RFC 2183, RFC 2231, and internationalized headers from RFC 6532.
+## Key Features
 
-## Features
+- Read EML files, bytes, strings, and streams.
+- Inspect headers, sender and recipient addresses, message bodies, MIME parts,
+  and attachments.
+- Preserve useful source information while decoding message content.
+- Record recoverable parsing problems or enforce strict validation.
+- Export parsed message data for downstream analytics.
+- Use the package with Python 3.12 or newer and inline type information.
 
-- Parse EML files, bytes, strings, and binary or text streams
-- Preserve raw source bytes, raw bodies, duplicate headers, and header order
-- Parse mailboxes and named or empty address groups into structured values
-- Decode encoded headers, Base64, quoted-printable, and text charsets
-- Traverse nested MIME messages through one consistent `RxMailMessage` model
-- Access plain-text bodies, HTML bodies, attachments, and inline resources
-- Parse dates, message IDs, resent blocks, trace blocks, and MIME metadata
-- Choose modern, lenient, or strict parsing behavior
-- Apply configurable size, header, MIME-depth, part-count, and decoded-body limits
-- Export the complete canonical message schema as a dictionary or JSON
-- Publish inline type information for MyPy and other PEP 561-aware tools
+## Quick Start
 
-## Requirements and installation
+### Installation
 
-- Python 3.12 or newer
-- No runtime dependencies outside the Python standard library
-
-```bash
-python -m pip install emlmailreader
+```console
+python -m pip install "emlmailreader>=2,<3"
 ```
 
-## Parse an EML file
+Pin the major version in production so a future breaking release does not
+change your analytics records unexpectedly.
+
+### Basic Usage
 
 ```python
 from EMLMailReader import MailReader
 
-message = MailReader().get_email("/path/to/message.eml")
+message = MailReader().get_email("/path/to/email.eml")
+
 if message is None:
-    raise RuntimeError("The file was missing, empty, or could not be read")
+    raise RuntimeError("The email could not be read")
 
 print(message.Subject)
 print([mailbox.Email for mailbox in message.From.Mailboxes])
-print([mailbox.Email for mailbox in message.To.Mailboxes])
 print(message.TextBody)
-print(message.HtmlBody)
 ```
-
-`get_email()` is the filesystem entry point. It returns `None` for missing,
-empty, or unreadable files. A standards error still raises when strict parsing
-is enabled.
-
-## Parse in-memory input
-
-Unit tests and applications that already have message content can avoid file
-handling:
-
-```python
-from io import BytesIO
-
-from EMLMailReader import MailReader
-
-reader = MailReader()
-
-from_bytes = reader.parse_bytes(
-    b"Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n"
-    b"From: Alice <alice@example.com>\r\n"
-    b"To: Team: Bob <bob@example.com>, Carol <carol@example.com>;\r\n"
-    b"Subject: Example\r\n\r\n"
-    b"Hello"
-)
-from_text = reader.parse_string(
-    "From: alice@example.com\r\nSubject: UTF-8 example – café\r\n\r\nHello"
-)
-from_stream = reader.parse_stream(BytesIO(from_bytes.RawSource))
-```
-
-Use `parse_bytes()` when exact wire-byte preservation matters.
-`parse_string()` encodes input as UTF-8 by default. `parse_stream()` reads a
-binary or text stream from its current position.
-
-## Addresses and headers
-
-`From`, `Sender`, `ReplyTo`, `To`, `Cc`, and `Bcc` are `AddressList` values.
-Their `Mailboxes` property provides a flattened immutable mailbox view, while
-iteration over the address list retains group boundaries.
-
-```python
-for mailbox in message.From.Mailboxes:
-    print(mailbox.DisplayName, mailbox.Email)
-
-# Ordered, duplicate-preserving, and case-insensitive header access.
-subject = message.Headers.get("subject")
-received = message.Headers.get_all("Received", decoded=False)
-subject_fields = message.Headers.occurrences("Subject")
-```
-
-Each header occurrence retains its raw, unfolded, decoded, position, and syntax
-status values.
-
-## MIME bodies and attachments
-
-Every node in `Children` is another `RxMailMessage`. Attachments and inline
-resources are immutable recursive tuple views of those same MIME nodes; there
-are no separate attachment or collection classes.
-
-```python
-def walk(part):
-    yield part
-    for child in part.Children:
-        yield from walk(child)
-
-
-for part in walk(message):
-    print(part.ContentType.MediaType, part.Name)
-
-for attachment in message.Attachments:
-    print(
-        attachment.Name,
-        attachment.ContentType.MediaType,
-        len(attachment.DecodedBody),
-    )
-
-message.save_attachments("/existing/output/directory")
-```
-
-The attachment destination must already exist. Saved names are reduced to
-their basename to prevent path traversal.
-
-## Parsing modes, diagnostics, and limits
-
-Modern and lenient modes retain recoverable messages and attach
-`ParseDiagnostic` objects to the affected MIME node. Strict mode raises
-`StandardsComplianceError` when error diagnostics are present.
-
-```python
-from EMLMailReader import (
-    MailReader,
-    ParserLimits,
-    ParsingMode,
-    StandardsComplianceError,
-)
-
-reader = MailReader(
-    parsing_mode=ParsingMode.STRICT,
-    limits=ParserLimits(
-        max_message_bytes=25 * 1024 * 1024,
-        max_header_bytes=512 * 1024,
-        max_header_count=5_000,
-        max_mime_depth=30,
-        max_parts=2_000,
-        max_decoded_part_bytes=10 * 1024 * 1024,
-    ),
-)
-
-try:
-    message = reader.get_email("message.eml")
-except StandardsComplianceError as error:
-    for diagnostic in error.diagnostics:
-        print(diagnostic.severity.value, diagnostic.code, diagnostic.message)
-```
-
-For non-strict parsing, diagnostics are available from
-`message.Diagnostics`; nested-part diagnostics remain on their corresponding
-child nodes.
-
-## Export the canonical schema
-
-The current major-version API exposes one model and one structured JSON schema.
-
-```python
-data = message.to_dict()
-json_text = message.export_as_json()
-
-assert data["schema_version"] == 2
-```
-
-The schema includes structured headers, addresses, dates, identifiers, MIME
-metadata, child parts, derived bodies, and diagnostics.
-
-## Logging
-
-Logging is disabled by default. It can be routed through Python's standard
-logging system to the console or to a timestamped file:
-
-```python
-from EMLMailReader import LoggingMode, MailReader
-
-console_reader = MailReader(logging_mode=LoggingMode.CONSOLE)
-file_reader = MailReader(
-    logging_mode=LoggingMode.FILE,
-    TargetLoggingFolder="/existing/log/directory",
-)
-```
-
-## Use with AI coding agents
-
-The repository includes the [`use-emlmailreader`](skill/use-emlmailreader/)
-agent skill. It helps AI coding agents build typed and tested email ingestion
-and analytics code with the canonical API, including structured addresses,
-MIME traversal, diagnostics, resource limits, migration from v1.0.4, and
-privacy-conscious handling.
-
-To install it, copy the complete skill directory into the location where your
-AI coding system discovers reusable skills:
-
-```bash
-cp -R skill/use-emlmailreader /path/to/your/skills-directory/
-```
-
-If the system supports repository-based skill installation, point it to:
-
-```text
-Repository: codadel/EMLMailReader
-Skill path: skill/use-emlmailreader
-```
-
-Use the repository tag that matches the installed EMLMailReader major version,
-and preserve the directory structure so `SKILL.md` can find its `references/`.
-Follow the AI system's normal process for refreshing or discovering newly
-installed skills. If automatic skill discovery is unavailable, provide
-`SKILL.md` and the relevant reference files as task instructions.
-
-Request the skill by name with a prompt such as:
-
-```text
-Use the use-emlmailreader skill to build a typed JSONL pipeline that extracts
-participants, thread identifiers, attachment metadata, and parser diagnostics
-from a directory of EML files.
-```
-
-The skill provides development guidance; the Python package must still be
-installed separately.
 
 ## License
 
-EMLMailReader is distributed under the terms in [LICENSE](LICENSE).
+This library is distributed under the terms specified in the
+[LICENSE](LICENSE) file.
 
 ## Documentation
 
 The [documentation portal](https://codadel.github.io/EMLMailReader/latest/)
-contains task-oriented guides, versioned behavior notes, migration guidance,
-and the generated API reference.
+contains installation guidance, analytics examples, versioned behavior notes,
+migration guidance, and the generated API reference. Use its version selector
+to open the v1.0.4 or v2 documentation.
+
+## AI-Assisted Development
+
+The repository includes a reusable
+[use-emlmailreader skill](https://github.com/codadel/EMLMailReader/tree/develop/skill/use-emlmailreader)
+for AI agents that build Python parsing, ingestion, or analytics code with
+this library. It covers recommended API patterns, testing practices,
+migration guidance, and privacy-aware handling. Follow your AI tool's normal
+process for installing and using repository skills.
 
 ## Support
 
-Report issues and feature requests in the
+For issues and feature requests, use the
 [GitHub issue tracker](https://github.com/codadel/EMLMailReader/issues).

@@ -95,3 +95,7 @@ raw = true
 [tasks.release-metadata]
 description = "Validate and display package and documentation release metadata"
 run = "python scripts/release_metadata.py"
+
+[tasks.test-release-metadata]
+description = "Resolve the next TestPyPI release candidate without changing files"
+run = "python -m scripts.test_release_metadata"

@@ -1,9 +1,11 @@
 name: Release package and documentation
 
 on:
-  push:
+  pull_request:
     branches:
       - release
+    types:
+      - closed
 
 concurrency:
   group: release
@@ -13,21 +15,25 @@ permissions:
   contents: read
 
 jobs:
-  prepare_release:
-    name: Validate, build, and tag release
-    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+  validate_and_build:
+    name: Quality-check and build release
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref == 'develop' &&
+      github.event.pull_request.base.ref == 'release' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
       version: ${{ steps.metadata.outputs.version }}
       tag: ${{ steps.metadata.outputs.tag }}
+      commit_sha: ${{ github.event.pull_request.merge_commit_sha }}
       docs_version: ${{ steps.metadata.outputs.docs_version }}
       docs_config: ${{ steps.metadata.outputs.docs_config }}
     steps:
-      - name: Check out repository
+      - name: Check out merged release commit
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -90,18 +96,10 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-      - name: Create and push release tag
-        env:
-          TAG: ${{ steps.metadata.outputs.tag }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "${TAG}" "${GITHUB_SHA}"
-          git push origin "${TAG}"
-
   publish_package:
     name: Publish package to PyPI
-    needs: prepare_release
+    needs: validate_and_build
+    if: ${{ needs.validate_and_build.result == 'success' }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -122,23 +120,24 @@ jobs:
   publish_documentation:
     name: Publish versioned documentation
     needs:
-      - prepare_release
+      - validate_and_build
       - publish_package
+    if: ${{ needs.validate_and_build.result == 'success' && needs.publish_package.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pages: write
     env:
-      VERSION: ${{ needs.prepare_release.outputs.version }}
-      TAG: ${{ needs.prepare_release.outputs.tag }}
-      DOCS_VERSION: ${{ needs.prepare_release.outputs.docs_version }}
-      DOCS_CONFIG: ${{ needs.prepare_release.outputs.docs_config }}
+      VERSION: ${{ needs.validate_and_build.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.validate_and_build.outputs.commit_sha }}
+      DOCS_VERSION: ${{ needs.validate_and_build.outputs.docs_version }}
+      DOCS_CONFIG: ${{ needs.validate_and_build.outputs.docs_config }}
       NO_MKDOCS_2_WARNING: "1"
     steps:
-      - name: Check out tagged release
+      - name: Check out validated release commit
         uses: actions/checkout@v7
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ env.RELEASE_COMMIT }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -191,6 +190,7 @@ jobs:
   deploy_pages:
     name: Deploy documentation to GitHub Pages
     needs: publish_documentation
+    if: ${{ needs.publish_documentation.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -204,19 +204,20 @@ jobs:
         uses: actions/deploy-pages@v5
 
   record_release:
-    name: Update changelog and create GitHub Release
+    name: Update changelog, tag, and create GitHub Release
     needs:
-      - prepare_release
+      - validate_and_build
       - publish_package
       - deploy_pages
+    if: ${{ needs.validate_and_build.result == 'success' && needs.publish_package.result == 'success' && needs.deploy_pages.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Check out release branch
+      - name: Check out validated release commit
         uses: actions/checkout@v7
         with:
-          ref: release
+          ref: ${{ needs.validate_and_build.outputs.commit_sha }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -234,7 +235,8 @@ jobs:
         id: release-notes
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.prepare_release.outputs.version }}
+          VERSION: ${{ needs.validate_and_build.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.validate_and_build.outputs.commit_sha }}
         run: |
           tag="v${VERSION}"
           previous_tag="$(
@@ -247,7 +249,7 @@ jobs:
             --method POST
             "repos/${GITHUB_REPOSITORY}/releases/generate-notes"
             -f "tag_name=${tag}"
-            -f "target_commitish=${tag}"
+            -f "target_commitish=${RELEASE_COMMIT}"
           )
           if [ -n "${previous_tag}" ]; then
             request+=(-f "previous_tag_name=${previous_tag}")
@@ -275,7 +277,7 @@ jobs:
 
       - name: Add published version to changelog
         env:
-          VERSION: ${{ needs.prepare_release.outputs.version }}
+          VERSION: ${{ needs.validate_and_build.outputs.version }}
         run: |
           python <<'PY'
           from datetime import datetime, timezone
@@ -315,7 +317,7 @@ jobs:
 
       - name: Commit changelog
         env:
-          VERSION: ${{ needs.prepare_release.outputs.version }}
+          VERSION: ${{ needs.validate_and_build.outputs.version }}
         run: |
           if git diff --quiet -- changelog.md; then
             echo "No changelog update is required"
@@ -325,14 +327,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add changelog.md
-          git commit -m "docs(release): add v${VERSION} changelog [skip release]"
+          git commit -m "docs(release): add v${VERSION} changelog"
           git push origin HEAD:release
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TITLE: ${{ steps.release-notes.outputs.title }}
-          TAG: ${{ needs.prepare_release.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.validate_and_build.outputs.commit_sha }}
+          TAG: ${{ needs.validate_and_build.outputs.tag }}
         run: |
           if release_is_draft="$(
             gh release view "${TAG}" --json isDraft --jq '.isDraft' 2>/dev/null
@@ -349,7 +352,7 @@ jobs:
             fi
           else
             gh release create "${TAG}" dist/* \
+              --target "${RELEASE_COMMIT}" \
               --title "${RELEASE_TITLE}" \
-              --notes-file release-notes.md \
-              --verify-tag
+              --notes-file release-notes.md
           fi

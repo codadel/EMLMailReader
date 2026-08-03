@@ -66,13 +66,22 @@ commands.
 
 The quality workflow runs only on pull requests whose target branch is
 `develop`. Direct pushes to `develop` or feature branches do not trigger it.
-The release workflow runs the same checks before creating a tag, building the
-package and matching documentation, or publishing either one.
+The release workflow runs the same checks after a `develop`-to-`release` pull
+request is merged, before publishing the package or matching documentation.
+The final tag, changelog, and GitHub Release stage is also gated on successful
+completion of its declared prerequisites.
 
-Both workflows are read-only during quality validation and use normal
-fail-fast GitHub Actions behavior. A failed formatting, lint, typing, test, or
-coverage command terminates the job. No workflow formats code or applies lint
-fixes.
+After a pull request is actually merged into `develop`, the isolated TestPyPI
+workflow repeats these checks against the automatically selected release
+candidate before building it. The separate publish job runs only when that
+quality-and-build job succeeds. A closed but unmerged pull request does not run
+the TestPyPI jobs. See
+[TestPyPI candidate publishing](TESTPYPI.md) for the version rules and failure
+conditions.
+
+All workflows use normal fail-fast GitHub Actions behavior during quality
+validation. A failed formatting, lint, typing, test, or coverage command
+terminates the job. No workflow formats code or applies lint fixes.
 
 ## Required standard
 
