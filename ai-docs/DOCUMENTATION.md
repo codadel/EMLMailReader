@@ -51,6 +51,10 @@ mise run docs-versioned-serve
 
 The generated `site/` directory is ignored and must not be committed.
 
+The `Documentation checks` workflow runs only on pull requests whose target
+branch is `develop`. Direct pushes to `develop` or feature branches do not
+trigger a documentation build.
+
 ## Authoring rules
 
 - Keep each major release under its matching `docs/vN/` directory.
