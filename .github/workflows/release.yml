@@ -1,95 +1,105 @@
-name: Release to PyPI
+name: Release package and documentation
 
 on:
-  push:
+  pull_request:
     branches:
       - release
+    types:
+      - closed
 
 concurrency:
   group: release
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  build-release:
-    name: Test, bump patch version, and build
-    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+  validate_and_build:
+    name: Quality-check and build release
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref == 'develop' &&
+      github.event.pull_request.base.ref == 'release' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
-      version: ${{ steps.bump-version.outputs.version }}
+      version: ${{ steps.metadata.outputs.version }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      commit_sha: ${{ github.event.pull_request.merge_commit_sha }}
+      docs_version: ${{ steps.metadata.outputs.docs_version }}
+      docs_config: ${{ steps.metadata.outputs.docs_config }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Check out merged release commit
+        uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-docs.txt
 
-      - name: Install build and test dependencies
+      - name: Resolve release metadata
+        id: metadata
+        run: python scripts/release_metadata.py --github-output "${GITHUB_OUTPUT}"
+
+      - name: Reject an existing release tag
+        env:
+          TAG: ${{ steps.metadata.outputs.tag }}
         run: |
-          python -m pip install --upgrade pip build
-          python -m pip install -e . -r requirements.txt
-
-      - name: Run tests
-        run: python -m unittest discover tests -v
-
-      - name: Bump patch version
-        id: bump-version
-        run: |
-          python <<'PY'
-          from pathlib import Path
-          import os
-          import re
-
-          pyproject = Path("pyproject.toml")
-          text = pyproject.read_text(encoding="utf-8")
-          match = re.search(r'(?m)^version\s*=\s*"(\d+)\.(\d+)\.(\d+)"\s*$', text)
-          if not match:
-              raise SystemExit("Could not find [project] semantic version in pyproject.toml")
-
-          major, minor, patch = (int(part) for part in match.groups())
-          new_version = f"{major}.{minor}.{patch + 1}"
-          updated = text[:match.start()] + f'version = "{new_version}"' + text[match.end():]
-          pyproject.write_text(updated, encoding="utf-8")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"version={new_version}\n")
-          print(f"Bumped version to {new_version}")
-          PY
-
-      - name: Commit version bump and create tag
-        run: |
-          version="${{ steps.bump-version.outputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git rev-parse "v${version}" >/dev/null 2>&1; then
-            echo "Tag v${version} already exists"
+          if git show-ref --verify --quiet "refs/tags/${TAG}"; then
+            echo "Release tag ${TAG} already exists"
             exit 1
           fi
 
-          git add pyproject.toml
-          git commit -m "chore(release): v${version} [skip release]"
-          git tag "v${version}"
-          git push origin HEAD:release
-          git push origin "v${version}"
+      - name: Install build, test, and documentation dependencies
+        run: |
+          python -m pip install --upgrade pip build
+          python -m pip install -e . -r requirements.txt -r requirements-docs.txt
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Run lint checks
+        run: ruff check .
+
+      - name: Run static type checks
+        run: mypy EMLMailReader tests
+
+      - name: Run tests with branch coverage
+        run: >-
+          pytest
+          --cov=EMLMailReader
+          --cov-branch
+          --cov-report=term-missing
+          --cov-fail-under=95
+
+      - name: Build matching major-version documentation
+        env:
+          DOCS_VERSION: ${{ steps.metadata.outputs.docs_version }}
+          NO_MKDOCS_2_WARNING: "1"
+        run: python scripts/docs.py build "${DOCS_VERSION}"
 
       - name: Build package distributions
         run: python -m build
 
       - name: Upload package distributions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-package-distributions
           path: dist/
+          if-no-files-found: error
 
-  publish:
-    name: Publish to PyPI
-    needs: build-release
+  publish_package:
+    name: Publish package to PyPI
+    needs: validate_and_build
+    if: ${{ needs.validate_and_build.result == 'success' }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -99,10 +109,250 @@ jobs:
       id-token: write
     steps:
       - name: Download package distributions
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: python-package-distributions
           path: dist/
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish_documentation:
+    name: Publish versioned documentation
+    needs:
+      - validate_and_build
+      - publish_package
+    if: ${{ needs.validate_and_build.result == 'success' && needs.publish_package.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+    env:
+      VERSION: ${{ needs.validate_and_build.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.validate_and_build.outputs.commit_sha }}
+      DOCS_VERSION: ${{ needs.validate_and_build.outputs.docs_version }}
+      DOCS_CONFIG: ${{ needs.validate_and_build.outputs.docs_config }}
+      NO_MKDOCS_2_WARNING: "1"
+    steps:
+      - name: Check out validated release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_COMMIT }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+
+      - name: Install package and documentation tools
+        run: python -m pip install -e . -r requirements-docs.txt
+
+      - name: Configure documentation publisher
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch existing documentation versions
+        run: git fetch origin gh-pages --depth=1 || true
+
+      - name: Publish documentation and stable aliases
+        run: |
+          mike deploy \
+            --config-file "${DOCS_CONFIG}" \
+            --branch gh-pages \
+            --push \
+            --update-aliases \
+            --title "${DOCS_VERSION} · ${VERSION}" \
+            "${DOCS_VERSION}" latest stable
+          mike set-default \
+            --config-file "${DOCS_CONFIG}" \
+            --branch gh-pages \
+            --push \
+            latest
+
+      - name: Prepare versioned site artifact
+        run: |
+          git fetch origin gh-pages --force
+          mkdir pages-site
+          git archive origin/gh-pages | tar -x -C pages-site
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages-site
+
+  deploy_pages:
+    name: Deploy documentation to GitHub Pages
+    needs: publish_documentation
+    if: ${{ needs.publish_documentation.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  record_release:
+    name: Update changelog, tag, and create GitHub Release
+    needs:
+      - validate_and_build
+      - publish_package
+      - deploy_pages
+    if: ${{ needs.validate_and_build.result == 'success' && needs.publish_package.result == 'success' && needs.deploy_pages.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out validated release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate_and_build.outputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Download package distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Generate release notes
+        id: release-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.validate_and_build.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.validate_and_build.outputs.commit_sha }}
+        run: |
+          tag="v${VERSION}"
+          previous_tag="$(
+            git tag --list 'v[0-9]*' --sort=-v:refname |
+              grep -Fxv "${tag}" |
+              head -n 1 || true
+          )"
+
+          request=(
+            --method POST
+            "repos/${GITHUB_REPOSITORY}/releases/generate-notes"
+            -f "tag_name=${tag}"
+            -f "target_commitish=${RELEASE_COMMIT}"
+          )
+          if [ -n "${previous_tag}" ]; then
+            request+=(-f "previous_tag_name=${previous_tag}")
+          fi
+          gh api "${request[@]}" > generated-release.json
+
+          RELEASE_TAG="${tag}" python <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          generated = json.loads(
+              Path("generated-release.json").read_text(encoding="utf-8")
+          )
+          title = str(generated.get("name") or os.environ["RELEASE_TAG"])
+          title = " ".join(title.splitlines()).strip()
+          body = str(generated.get("body") or "").rstrip()
+          if not body:
+              body = "No release notes were generated."
+
+          Path("release-notes.md").write_text(f"{body}\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"title={title}\n")
+          PY
+
+      - name: Add published version to changelog
+        env:
+          VERSION: ${{ needs.validate_and_build.outputs.version }}
+        run: |
+          python <<'PY'
+          from datetime import datetime, timezone
+          import os
+          from pathlib import Path
+          import re
+
+          version = os.environ["VERSION"]
+          changelog = Path("changelog.md")
+          text = changelog.read_text(encoding="utf-8")
+          version_pattern = rf"(?m)^## \[{re.escape(version)}\]\("
+          if re.search(version_pattern, text):
+              print(f"changelog.md already contains version {version}")
+              raise SystemExit(0)
+
+          notes = Path("release-notes.md").read_text(encoding="utf-8").strip()
+          notes = re.sub(
+              r"(?m)^(#+)(?=\s)",
+              lambda match: f"#{match.group(1)}",
+              notes,
+          )
+          published = datetime.now(timezone.utc).date().isoformat()
+          heading = (
+              f"## [{version}]"
+              f"(https://pypi.org/project/emlmailreader/{version}/)"
+              f" - {published}"
+          )
+          entry = f"{heading}\n\n{notes}\n\n"
+
+          first_version = re.search(r"(?m)^## \[\d+\.\d+\.\d+\]", text)
+          if first_version:
+              updated = text[: first_version.start()] + entry + text[first_version.start() :]
+          else:
+              updated = f"{text.rstrip()}\n\n{entry}"
+          changelog.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Commit changelog
+        env:
+          VERSION: ${{ needs.validate_and_build.outputs.version }}
+        run: |
+          if git diff --quiet -- changelog.md; then
+            echo "No changelog update is required"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add changelog.md
+          git commit -m "docs(release): add v${VERSION} changelog"
+          git push origin HEAD:release
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TITLE: ${{ steps.release-notes.outputs.title }}
+          RELEASE_COMMIT: ${{ needs.validate_and_build.outputs.commit_sha }}
+          TAG: ${{ needs.validate_and_build.outputs.tag }}
+        run: |
+          if release_is_draft="$(
+            gh release view "${TAG}" --json isDraft --jq '.isDraft' 2>/dev/null
+          )"; then
+            if [ "${release_is_draft}" = "true" ]; then
+              gh release upload "${TAG}" dist/* --clobber
+              gh release edit "${TAG}" \
+                --title "${RELEASE_TITLE}" \
+                --notes-file release-notes.md \
+                --draft=false \
+                --verify-tag
+            else
+              echo "GitHub Release ${TAG} already exists"
+            fi
+          else
+            gh release create "${TAG}" dist/* \
+              --target "${RELEASE_COMMIT}" \
+              --title "${RELEASE_TITLE}" \
+              --notes-file release-notes.md
+          fi

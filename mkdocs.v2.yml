@@ -1,0 +1,43 @@
+INHERIT: mkdocs.yml
+
+site_description: Documentation for the EMLMailReader v2 release line
+edit_uri: edit/develop/docs/v2/
+docs_dir: docs/v2
+site_dir: site/v2
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Parse your first message: getting-started/first-email.md
+      - Understand the message model: getting-started/message-model.md
+  - Guides:
+      - Build analytics records: guides/analytics.md
+      - Process a folder of emails: guides/batch-processing.md
+      - Work with addresses: guides/addresses.md
+      - Inspect headers: guides/headers.md
+      - Work with attachments: guides/attachments.md
+      - Export parsed data: guides/exporting.md
+      - Logging and failures: guides/logging-errors.md
+  - Concepts:
+      - Email and MIME essentials: concepts/email-mime.md
+      - Parsing modes, diagnostics, and limits: concepts/parser-modes.md
+      - Documentation and schema versions: concepts/versioning.md
+  - Migrate from v1: migration/v1-to-v2.md
+  - API reference:
+      - Overview: reference/index.md
+      - MailReader: reference/MailReader.md
+      - RxMailMessage: reference/RxMailMessage.md
+      - MailAddress: reference/MailAddress.md
+      - AddressList: reference/AddressList.md
+      - Structured types: reference/StructuredTypes.md
+      - ContentType: reference/ContentType.md
+      - ContentDisposition: reference/ContentDisposition.md
+      - TextEncoding: reference/TextEncoding.md
+      - Logger: reference/Logger.md
+      - Enumerations: reference/Enumerations.md
+      - Exceptions: reference/Exceptions.md
+      - Generated core API: reference/generated-core.md
+      - Generated structured API: reference/generated-standards.md
+      - Generated MIME API: reference/generated-mime.md
+      - Generated utility API: reference/generated-utilities.md

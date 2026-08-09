@@ -1,96 +1,91 @@
 # Documentation development
 
-The documentation portal uses Material for MkDocs, mike, and mkdocstrings.
-Documentation dependencies are pinned separately from the library so the
-EMLMailReader runtime remains dependency-free.
+The portal uses Material for MkDocs, Mike, and mkdocstrings. Documentation
+dependencies are pinned separately so the EMLMailReader runtime remains
+dependency-free.
 
-## Version scope
+## Source layout
 
-The portal publishes documentation by major release line:
+The maintained branches retain Markdown source for every major release:
 
-- v1 documents the API released as EMLMailReader 1.0.4.
-- v2 will document the Improvements work and become the default documentation
-  when EMLMailReader 2.0.0 is released.
+```text
+docs/v1/        EMLMailReader 1.x source
+docs/v2/        EMLMailReader 2.x source
+mkdocs.yml      shared theme and plugin configuration
+mkdocs.v1.yml   v1 source directory and navigation
+mkdocs.v2.yml   v2 source directory and navigation
+```
 
-Changes on this branch must describe v1 behavior. Do not copy v2 APIs or
-examples into the v1 portal.
+The v1 source is archived. New implementation guidance belongs in `docs/v2/`.
+Published HTML for all versions remains on `gh-pages` and must not be edited
+manually.
 
-## Local preview
-
-Install the package and documentation tools:
+## Local setup
 
 ```bash
 mise run setup
 mise run docs-setup
 ```
 
-Start the local development server:
+## Build and preview
+
+The current version defaults to v2:
 
 ```bash
+mise run docs-build
 mise run docs-serve
 ```
 
-MkDocs prints the local preview URL and rebuilds the portal when a source file
-changes.
+Pass a major version when needed:
 
-To preview the versions already published to the local `gh-pages` branch, run:
+```bash
+mise run docs-build v2
+mise run docs-serve v2
+```
+
+To preview snapshots already stored on the local `gh-pages` branch:
 
 ```bash
 mise run docs-versioned-serve
 ```
 
-## Strict build
-
-Run the same strict validation used in CI:
-
-```bash
-mise run docs-build
-```
-
 The generated `site/` directory is ignored and must not be committed.
+
+The `Documentation checks` workflow runs only on pull requests whose target
+branch is `develop`. Direct pushes to `develop` or feature branches do not
+trigger a documentation build.
 
 ## Authoring rules
 
-- Keep conceptual explanations and examples in `docs/`.
-- Keep API behavior in source docstrings and expose it through
-  the pages under `docs/reference/`.
-- Add every user-facing page to the navigation in `mkdocs.yml`.
+- Keep each major release under its matching `docs/vN/` directory.
+- Keep tutorials and task guidance separate from exact API reference pages.
+- Generate signatures from source docstrings through mkdocstrings.
+- Add every user-facing page to the matching `mkdocs.vN.yml` navigation.
 - Use repository-relative Markdown links.
-- Run the strict documentation build before handing off a documentation
-  change.
+- Build the active major version strictly before committing.
+- Do not rebuild v1 API pages against v2 code and treat the result as a new v1
+  publication.
 
-## Versioned publishing
+## Publishing model
 
-Authored documentation stays with the matching library source. Generated HTML
-for all supported versions is stored on the `gh-pages` branch:
+The unified release workflow reads the exact package version from
+`pyproject.toml`, derives its major version, builds the matching configuration,
+publishes the package to PyPI, and then deploys that major-version
+documentation through Mike and GitHub Pages.
 
-- `docs/v1-portal` is the maintenance source for the v1 documentation.
-- `docs/v2-portal` will be based on the v2 implementation.
-- `gh-pages` is generated output and must not be edited manually.
+For example, package version `2.0.1` selects `mkdocs.v2.yml`, updates `/v2/`,
+and keeps `/v1/` unchanged. Stable releases move the `latest` and `stable`
+aliases to the published major version.
 
-Publishing v1 writes the site to `/v1/`, assigns the `stable` and `latest`
-aliases, and makes `latest` the portal default:
+The workflow does not infer or increment the next package version. Release
+preparation must set the intended `MAJOR.MINOR.PATCH` value explicitly. Run
+`mise run release-metadata` to validate the package-to-documentation mapping
+without publishing anything.
 
-```bash
-mise run docs-deploy-v1
-```
+Documentation is published only by `.github/workflows/release.yml`; there is no
+separate branch-specific documentation deployment. See
+[Release process](RELEASE.md) for the complete order and repository settings.
 
-The publishing workflow performs the same mike deployment after a successful
-push build on `docs/v1-portal`, packages the complete version store as a Pages
-artifact, and deploys it through GitHub's official Pages action. It can also be
-run manually. Pull requests use a separate read-only workflow that runs the
-strict build.
-
-Repository administrators must select **GitHub Actions** as the publishing
-source under **Settings → Pages**. This is a one-time repository setting; the
-workflow handles later portal deployments.
-
-When v2 is released, publish it under `/v2/` and move `stable` and `latest` to
-v2. The generated v1 snapshot remains available and selectable.
-
-## Maintaining v1
-
-Make v1 corrections on `docs/v1-portal`, validate them locally, and open a
-pull request. Do not merge v2 implementation or documentation into this branch.
-Republishing v1 replaces only the generated `/v1/` directory; other published
-versions remain untouched.
+Repository administrators must keep **GitHub Actions** selected under
+**Settings → Pages** and allow the `release` branch to deploy through the
+`github-pages` environment.

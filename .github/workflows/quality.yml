@@ -1,0 +1,46 @@
+name: Quality checks
+
+on:
+  pull_request:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Ruff, MyPy, tests, and coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and development dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . -r requirements.txt
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Run lint checks
+        run: ruff check .
+
+      - name: Run static type checks
+        run: mypy EMLMailReader tests
+
+      - name: Run tests with branch coverage
+        run: >-
+          pytest
+          --cov=EMLMailReader
+          --cov-branch
+          --cov-report=term-missing
+          --cov-fail-under=95
