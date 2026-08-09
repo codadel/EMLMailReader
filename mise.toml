@@ -22,8 +22,12 @@ description = "Run in-memory unit tests without filesystem handling"
 run = "pytest tests/unit"
 
 [tasks.functional]
-description = "Run real EML parsing and filesystem functional tests"
+description = "Run end-to-end EML processing functional tests"
 run = "pytest tests/functional"
+
+[tasks.tooling]
+description = "Run filesystem-backed packaging and release tooling tests"
+run = "pytest tests/tooling"
 
 [tasks.test-verbose]
 description = "Run the pytest suite with individual test names"

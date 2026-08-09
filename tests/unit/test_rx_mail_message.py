@@ -1,10 +1,12 @@
 import inspect
 import json
 import unittest
+from unittest.mock import mock_open, patch
 
 from EMLMailReader import (
     ContentDisposition,
     ContentType,
+    FolderNotAvailableError,
     MailReader,
     RxMailMessage,
 )
@@ -70,6 +72,10 @@ class TestRxMailMessage(unittest.TestCase):
         mixed.Children.extend((plain, html))
         self.assertEqual(mixed.Body, "plain")
 
+        empty_container = RxMailMessage()
+        empty_container.Children.append(RxMailMessage())
+        self.assertEqual(empty_container.Body, "")
+
     def test_attachment_and_inline_views_reference_mime_parts(self) -> None:
         attachment = RxMailMessage()
         attachment.ContentType.parse('application/octet-stream; name="legacy.bin"')
@@ -119,6 +125,38 @@ class TestRxMailMessage(unittest.TestCase):
         disposition = ContentDisposition()
         disposition.parse("inline")
         self.assertEqual(disposition.to_dict()["type"], "inline")
+
+    def test_attachment_saving_paths_without_filesystem_access(self) -> None:
+        direct = RxMailMessage()
+        direct.ContentType.parse('application/octet-stream; name=".."')
+        direct.DecodedBody = b"direct"
+
+        nested = RxMailMessage()
+        nested.ContentType.parse('message/rfc822; name="nested.eml"')
+        nested_child = RxMailMessage()
+        nested_child.RawSource = b"nested source"
+        nested.Children.append(nested_child)
+
+        root = RxMailMessage()
+        root.Children.extend((direct, nested))
+        target = mock_open()
+        with (
+            patch("EMLMailReader.Rx_Mail_Message.os.path.isdir", return_value=True),
+            patch("builtins.open", target),
+        ):
+            root.save_attachments("/output")
+
+        self.assertEqual(target.call_count, 2)
+        target.assert_any_call("/output/attachment", "wb")
+        target.assert_any_call("/output/nested.eml", "wb")
+        written = [call.args[0] for call in target().write.call_args_list]
+        self.assertEqual(written, [b"direct", b"nested source"])
+
+        with (
+            patch("EMLMailReader.Rx_Mail_Message.os.path.isdir", return_value=False),
+            self.assertRaises(FolderNotAvailableError),
+        ):
+            root.save_attachments("/missing")
 
 
 if __name__ == "__main__":

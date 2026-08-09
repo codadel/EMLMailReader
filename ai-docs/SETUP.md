@@ -61,6 +61,7 @@ Use the more focused or verbose test tasks when needed:
 ```bash
 mise run unit
 mise run functional
+mise run tooling
 mise run test-verbose
 mise run coverage
 mise run coverage-html

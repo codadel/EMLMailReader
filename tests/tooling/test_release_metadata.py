@@ -1,4 +1,4 @@
-"""Tests for the filesystem-backed release metadata resolver."""
+"""Tooling tests for the filesystem-backed release metadata resolver."""
 
 from pathlib import Path
 
@@ -9,6 +9,8 @@ from scripts.release_metadata import (
     load_release_metadata,
     write_github_output,
 )
+
+pytestmark = pytest.mark.tooling
 
 
 def create_release_project(root: Path, version: str = "2.3.4") -> None:

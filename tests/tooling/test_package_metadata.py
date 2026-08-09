@@ -1,10 +1,10 @@
-"""Functional checks for files shipped with the installed package."""
+"""Tooling checks for files shipped with the installed package."""
 
 from importlib.resources import files
 
 import pytest
 
-pytestmark = pytest.mark.functional
+pytestmark = pytest.mark.tooling
 
 
 def test_installed_package_includes_pep561_marker() -> None:

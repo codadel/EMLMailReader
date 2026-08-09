@@ -40,7 +40,14 @@ The suite has a strict boundary:
 - `tests/functional/` contains tests that parse committed `.eml` files from
   `tests/functional/assets/` and `tests/functional/fixtures/` through
   `MailReader.get_email`, and covers filesystem workflows such as attachment
-  and log-file writes.
+  and log-file writes. EML-processing coverage is organized by outcome:
+  `test_eml_happy_paths.py` covers successful workflows,
+  `test_eml_fallback_paths.py` covers recoverable inputs that return fallback
+  values or diagnostics, and `test_eml_error_paths.py` covers workflows that
+  intentionally raise exceptions.
+- `tests/tooling/` contains filesystem-backed packaging, release-metadata, and
+  TestPyPI candidate-preparation checks. These remain separate from functional
+  tests because they validate repository automation rather than EML processing.
 - `tests/functional/regressions/` contains original EML files from resolved
   issues. Keep these files byte-for-byte unchanged, protect their checksums in
   the corresponding regression tests, and assert the behavior that previously
@@ -56,6 +63,12 @@ Run only the real-file functional tests:
 
 ```bash
 mise run functional
+```
+
+Run only the packaging and release tooling tests:
+
+```bash
+mise run tooling
 ```
 
 To display every collected test name:
@@ -115,5 +128,5 @@ terminates the quality job; no CI command changes repository files. The
 TestPyPI publishing job runs only after its quality-and-package-build job has
 succeeded.
 
-Functional tests include package-installation checks, such as verifying that
-the PEP 561 `py.typed` marker is shipped.
+Tooling tests include package-installation checks, such as verifying that the
+PEP 561 `py.typed` marker is shipped.

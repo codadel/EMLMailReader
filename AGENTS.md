@@ -12,8 +12,9 @@ linked documentation instead.
 - Preserve the single canonical v2 API. Do not reintroduce removed legacy
   projections, compatibility modes, duplicate attachment/address classes, or
   alternate serialization schemas.
-- Keep unit tests filesystem-free. Real EML files and filesystem behavior
-  belong in functional tests.
+- Keep unit tests filesystem-free. Real EML files and EML-related filesystem
+  behavior belong in functional tests. Packaging and release filesystem
+  workflows belong in tooling tests.
 - Update package exports, tests, and versioned public documentation together
   when public behavior changes.
 - Maintain more than 95% branch coverage for every library module and for the

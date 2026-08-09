@@ -1,8 +1,9 @@
 import logging
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-from EMLMailReader import Logger, LoggingMode
+from EMLMailReader import FolderNotAvailableError, Logger, LoggingMode
 from EMLMailReader.Enumerations import LoggingLevel
 
 
@@ -49,6 +50,26 @@ class TestProcessingLogs(unittest.TestCase):
         result = Logger.set_configuration(LoggingMode.NONE)
 
         self.assertEqual(result, "", "NONE mode should return empty string.")
+
+    def test_set_configuration_file_mode_without_writing_a_file(self) -> None:
+        timestamp = datetime(2026, 8, 9, 10, 11, 12)
+        with (
+            patch("EMLMailReader.Processing_Logs.os.path.exists", return_value=True),
+            patch("EMLMailReader.Processing_Logs.datetime.datetime") as clock,
+            patch("EMLMailReader.Processing_Logs.logging.basicConfig") as configure,
+        ):
+            clock.now.return_value = timestamp
+            result = Logger.set_configuration(LoggingMode.FILE, "/logs")
+
+        self.assertEqual(result, "/logs/EMLMailReader_Logs_202689_101112.log")
+        configure.assert_called_once()
+        self.assertEqual(configure.call_args.kwargs["filename"], result)
+
+        with (
+            patch("EMLMailReader.Processing_Logs.os.path.exists", return_value=False),
+            self.assertRaises(FolderNotAvailableError),
+        ):
+            Logger.set_configuration(LoggingMode.FILE, "/missing")
 
     @patch("logging.info")
     def test_logentry_info_level(self, mock_info: MagicMock) -> None:

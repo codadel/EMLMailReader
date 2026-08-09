@@ -29,7 +29,8 @@ testpaths = ["tests"]
 addopts = ["-ra", "--tb=short", "--strict-markers"]
 log_cli = false
 markers = [
-    "functional: tests that parse real EML files or exercise filesystem behavior"
+    "functional: end-to-end tests that process real EML files",
+    "tooling: filesystem-backed packaging and release automation tests"
 ]
 
 [tool.coverage.run]

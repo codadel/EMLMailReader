@@ -2,18 +2,35 @@ import base64
 import io
 import json
 import unittest
+from email.message import Message
+from typing import cast
+from unittest.mock import patch
 
 from EMLMailReader import (
     AddressGroup,
+    AddressList,
     ContentDisposition,
+    DiagnosticSeverity,
+    ExternalBodyAccessInfo,
+    HeaderCollection,
+    HeaderField,
     MailReader,
+    MessagePartialInfo,
+    ParsedDateTime,
+    ParseDiagnostic,
+    ParsedMessageID,
     ParserLimits,
     ParsingMode,
+    ResentBlock,
     RxMailMessage,
     StandardsComplianceError,
+    SyntaxStatus,
     TextEncoding,
+    TraceBlock,
     TransferEncoding,
+    TransferEncodingValue,
 )
+from EMLMailReader.RFC_Parser import StandardsParser
 
 
 class StandardsComplianceTests(unittest.TestCase):
@@ -37,6 +54,61 @@ class StandardsComplianceTests(unittest.TestCase):
     def diagnostic_codes(self, message: RxMailMessage) -> set[str]:
         return {item.code for item in message.Diagnostics}
 
+    def test_header_collection_protocol_and_raw_lookup(self) -> None:
+        field = HeaderField(
+            name="X-Test",
+            raw_name="X-Test",
+            raw_value=" raw",
+            unfolded_value="raw",
+            decoded_value="decoded",
+            index=0,
+            syntax_status=SyntaxStatus.CURRENT,
+        )
+        headers = HeaderCollection([field])
+        self.assertEqual(len(headers), 1)
+        self.assertIs(headers[0], field)
+        self.assertEqual(list(headers), [field])
+        self.assertEqual(headers.get("x-test"), "decoded")
+        self.assertEqual(headers.get("x-test", decoded=False), "raw")
+        self.assertEqual(headers.get("missing", "fallback"), "fallback")
+        self.assertEqual(headers.occurrences("X-TEST"), [field])
+        self.assertEqual(headers.to_list()[0]["syntax_status"], "current")
+
+    def test_structured_values_export(self) -> None:
+        message_id = ParsedMessageID(
+            "<a@example.com>", "a@example.com", "a", "example.com"
+        )
+        self.assertEqual(message_id.to_dict()["left"], "a")
+
+        parsed_date = ParsedDateTime("raw", None, False)
+        self.assertIsNone(parsed_date.to_dict()["value"])
+
+        diagnostic = ParseDiagnostic(
+            "Example",
+            "message",
+            DiagnosticSeverity.INFO,
+            rfc="RFC 5322",
+        )
+        self.assertEqual(diagnostic.to_dict()["severity"], "info")
+
+        transfer = TransferEncodingValue.parse("")
+        self.assertEqual(transfer.kind, TransferEncoding.SEVEN_BIT)
+
+        self.assertEqual(MessagePartialInfo("part", 1, 2).to_dict()["total"], 2)
+        self.assertEqual(
+            ExternalBodyAccessInfo("URL", {"url": "https://example.com"}).to_dict()[
+                "access_type"
+            ],
+            "URL",
+        )
+        self.assertEqual(ResentBlock(HeaderCollection()).to_dict(), [])
+        self.assertEqual(
+            TraceBlock("<sender@example.com>", ["by mx.example.com"]).to_dict()[
+                "received"
+            ],
+            ["by mx.example.com"],
+        )
+
     def test_rfc5322_defaults_and_lossless_source(self) -> None:
         message = self.parse(b"Subject: hello\r\n", b"body\r\n")
         self.assertFalse(message.ContentType.IsExplicit)
@@ -54,6 +126,11 @@ class StandardsComplianceTests(unittest.TestCase):
         stream_message = reader.parse_stream(io.StringIO(text))
         assert stream_message.MessageID is not None
         self.assertEqual(stream_message.MessageID.value, "one@example.com")
+
+    def test_invalid_mode_falls_back_to_modern(self) -> None:
+        self.assertEqual(
+            StandardsParser("unsupported").parsing_mode, ParsingMode.MODERN
+        )
 
     def test_ordered_duplicate_headers_and_folding(self) -> None:
         message = self.parse(
@@ -258,6 +335,32 @@ class StandardsComplianceTests(unittest.TestCase):
         self.assertEqual(message.Children[0].Subject, "世界")
         self.assertEqual(message.Children[0].From.Mailboxes[0].LocalPart, "josé")
 
+    def test_message_global_decode_error_is_reported(self) -> None:
+        message = self.parse(
+            b"MIME-Version: 1.0\r\n"
+            b"Content-Type: message/global\r\n"
+            b"Content-Transfer-Encoding: quoted-printable\r\n",
+            b"not-a-message",
+        )
+        self.assertTrue(message.Children or message.Diagnostics)
+
+    def test_message_global_decoder_exception_is_diagnostic(self) -> None:
+        source = self.REQUIRED + (
+            b"MIME-Version: 1.0\r\n"
+            b"Content-Type: message/global\r\n"
+            b"Content-Transfer-Encoding: base64\r\n\r\n"
+            b"RGF0ZTogRnJpLCAyMSBOb3YgMTk5NyAwOTo1NTowNiAtMDYwMA0KDQo="
+        )
+        with patch(
+            "EMLMailReader.RFC_Parser.b64decode",
+            side_effect=ValueError("invalid base64"),
+        ):
+            message = MailReader().parse_bytes(source)
+        self.assertIn(
+            "InvalidMessageGlobalEncoding",
+            self.diagnostic_codes(message),
+        )
+
     def test_message_partial_and_external_body_metadata(self) -> None:
         partial = self.parse(
             b'MIME-Version: 1.0\r\nContent-Type: message/partial; id="part-id"; number=2; total=3\r\n',
@@ -276,6 +379,16 @@ class StandardsComplianceTests(unittest.TestCase):
             external.ExternalBodyAccess.parameters["url"], "https://example.com/a"
         )
 
+    def test_invalid_message_partial_parameters_are_diagnostic(self) -> None:
+        message = self.parse(
+            b"MIME-Version: 1.0\r\nContent-Type: message/partial; number=0\r\n",
+            b"fragment",
+        )
+        self.assertIn(
+            "InvalidMessagePartialParameters",
+            self.diagnostic_codes(message),
+        )
+
     def test_resent_and_trace_blocks_preserve_repeated_fields(self) -> None:
         message = self.parse(
             b"Return-Path: <bounce@example.com>\r\n"
@@ -289,6 +402,26 @@ class StandardsComplianceTests(unittest.TestCase):
         self.assertEqual(
             message.ResentBlocks[0].fields.get("Resent-To"), "user@example.com"
         )
+
+    def test_resent_and_trace_block_edge_cases(self) -> None:
+        message = self.parse(
+            b"Resent-Date: Sat, 22 Nov 1997 10:00:00 -0600\r\n"
+            b"Resent-From: one@example.com, two@example.com\r\n"
+            b"Resent-Date: Sun, 23 Nov 1997 10:00:00 -0600\r\n"
+            b"Resent-From: relay@example.com\r\n"
+            b"Resent-Sender: Team: one@example.com, two@example.com;\r\n"
+            b"X-End-Resent: yes\r\n"
+            b"Return-Path: <first@example.com>\r\n"
+            b"Received: by first.example.com\r\n"
+            b"Return-Path: <second@example.com>\r\n"
+            b"Received: by second.example.com\r\n",
+            b"body",
+        )
+        codes = self.diagnostic_codes(message)
+        self.assertIn("MissingRequiredResentSender", codes)
+        self.assertIn("InvalidResentSenderGroup", codes)
+        self.assertEqual(len(message.ResentBlocks), 2)
+        self.assertEqual(len(message.TraceBlocks), 2)
 
     def test_cardinality_mime_and_line_diagnostics(self) -> None:
         message = self.parse(
@@ -343,6 +476,31 @@ class StandardsComplianceTests(unittest.TestCase):
         invalid_mime = self.parse(b"MIME-Version: one\r\nContent-Type: text/plain\r\n")
         self.assertIn("InvalidMIMEVersion", self.diagnostic_codes(invalid_mime))
 
+    def test_unsupported_mime_version_is_warning(self) -> None:
+        message = self.parse(
+            b"MIME-Version: 2.0\r\nContent-Type: text/plain\r\n",
+            b"body",
+        )
+        self.assertIn("UnsupportedMIMEVersion", self.diagnostic_codes(message))
+
+    def test_invalid_address_list_is_retained_as_a_diagnostic(self) -> None:
+        real_address_list = AddressList
+        failed = False
+
+        def parse_address_list(raw_value: str = "") -> AddressList:
+            nonlocal failed
+            if raw_value and not failed:
+                failed = True
+                raise ValueError("invalid address list")
+            return real_address_list(raw_value)
+
+        with patch(
+            "EMLMailReader.RFC_Parser.AddressList",
+            side_effect=parse_address_list,
+        ):
+            message = self.parse(b"To: recipient@example.com\r\n", b"body")
+        self.assertIn("InvalidAddressList", self.diagnostic_codes(message))
+
     def test_recursive_resource_limits(self) -> None:
         source = self.REQUIRED + (
             b"MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=x\r\n\r\n"
@@ -360,12 +518,55 @@ class StandardsComplianceTests(unittest.TestCase):
         }
         self.assertIn("MimeDepthLimitExceeded", child_codes)
 
+    def test_root_part_count_limit_is_diagnostic(self) -> None:
+        message = self.parse(limits=ParserLimits(max_parts=0), body=b"body")
+        self.assertIn("MimePartLimitExceeded", self.diagnostic_codes(message))
+
+    def test_payload_and_header_resource_limits_are_diagnostic(self) -> None:
+        limits = ParserLimits(
+            max_header_bytes=10,
+            max_header_count=1,
+            max_decoded_part_bytes=2,
+        )
+        message = self.parse(limits=limits, body=b"body")
+        codes = self.diagnostic_codes(message)
+        self.assertIn("HeaderSizeLimitExceeded", codes)
+        self.assertIn("HeaderCountLimitExceeded", codes)
+        self.assertIn("DecodedPartLimitExceeded", codes)
+
+    def test_leaf_payload_none_uses_string_fallback(self) -> None:
+        class PayloadWithoutDecodedBytes:
+            @staticmethod
+            def get_payload(decode: bool = False) -> str | None:
+                return None if decode else "fallback"
+
+            @staticmethod
+            def get_content_type() -> str:
+                return "application/octet-stream"
+
+        result = RxMailMessage()
+        parser = StandardsParser(limits=ParserLimits(max_decoded_part_bytes=2))
+        parser._populate_leaf_body(
+            result,
+            cast(Message, PayloadWithoutDecodedBytes()),
+        )
+        self.assertEqual(result.DecodedBody, b"fallback")
+        self.assertIn("DecodedPartLimitExceeded", self.diagnostic_codes(result))
+
     def test_modern_mode_reports_implicit_ascii_violation_but_retains_bytes(
         self,
     ) -> None:
         source = self.REQUIRED + b"\r\n\xc3\xa9"
         message = MailReader().parse_bytes(source)
         self.assertEqual(message.DecodedBody, b"\xc3\xa9")
+        self.assertIn("InvalidCharsetData", self.diagnostic_codes(message))
+
+    def test_unknown_charset_and_invalid_payload_are_diagnostic(self) -> None:
+        message = self.parse(
+            b"MIME-Version: 1.0\r\nContent-Type: text/plain; charset=x-unknown\r\n",
+            b"\xff",
+        )
+        self.assertEqual(message.Body, "�")
         self.assertIn("InvalidCharsetData", self.diagnostic_codes(message))
 
     def test_receiver_mode_reports_bare_lf_and_invalid_utf8(self) -> None:
