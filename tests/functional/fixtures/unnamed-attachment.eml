@@ -1,0 +1,10 @@
+Date: Fri, 21 Nov 1997 09:55:06 -0600
+From: Alice <alice@example.com>
+To: Bob <bob@example.com>
+Subject: Unnamed attachment
+MIME-Version: 1.0
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment
+
+eA==

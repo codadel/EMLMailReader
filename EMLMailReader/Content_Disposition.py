@@ -1,86 +1,124 @@
-import json
-from .Enumerations import DispositionType
+"""Structured representation of a MIME Content-Disposition field."""
+
+from email.message import Message
+from email.policy import default
+from email.utils import parsedate_to_datetime
+from typing import TypeVar
+
+from .Standards import JsonObject, ParsedDateTime
+
+_DefaultT = TypeVar("_DefaultT")
 
 
 class ContentDisposition:
-    """
-    A class to represent the Content-Disposition header of a MIME entity.
+    """Represent a parsed MIME Content-Disposition field.
 
-    This class parses and stores information from the Content-Disposition header,
-    which indicates how content should be presented (as attachment or inline)
-    and includes metadata such as filename, dates, and size.
+    The model retains the original field value and every decoded parameter while
+    exposing common RFC 2183 metadata such as the filename, size, and lifecycle
+    dates through dedicated attributes.
+
+    Attributes:
+        DispositionType: Lowercase registered or extension disposition token.
+        FileName: Suggested filename decoded from the ``filename`` parameter.
+        CreationDate: Parsed ``creation-date`` value, if present.
+        ModificationDate: Parsed ``modification-date`` value, if present.
+        ReadDate: Parsed ``read-date`` value, if present.
+        Size: Declared content size in bytes, or zero when absent or invalid.
+        Parameters: All decoded parameters keyed by lowercase name.
+        RawValue: Original Content-Disposition field value.
+        IsExplicit: Whether the source contained a Content-Disposition field.
     """
-    def __init__(self):
-        self.DispositionType: DispositionType = DispositionType.ATTACHMENT
-        """Specifies whether the content should be displayed inline or as an attachment."""
+
+    def __init__(self) -> None:
+        """Initialize an empty, non-explicit disposition value."""
+        self.DispositionType = ""
+        """The registered or extension disposition token."""
         self.FileName = ""
         """The suggested filename for the MIME entity when saved to disk."""
-        self.CreationDate = ""
+        self.CreationDate: ParsedDateTime | None = None
         """RFC 2822 formatted date when the MIME entity was originally created."""
-        self.ModificationDate = ""
+        self.ModificationDate: ParsedDateTime | None = None
         """RFC 2822 formatted date when the MIME entity was last modified."""
         self.Size = 0
         """Size of the MIME entity content in bytes."""
+        self.ReadDate: ParsedDateTime | None = None
+        self.Parameters: dict[str, str] = {}
+        self.RawValue = ""
+        self.IsExplicit = False
 
-    def parse(self, ContentDispositionString: str):
+    def parse(self, ContentDispositionString: str) -> None:
+        """Parse a field value and replace this instance's disposition metadata.
+
+        Args:
+            ContentDispositionString: Content-Disposition value without the
+                field name.
         """
-        Parses a Content-Disposition header string and populates the object's properties.
+        value = (ContentDispositionString or "").strip()
+        self.DispositionType = ""
+        self.RawValue = value
+        self.IsExplicit = bool(value)
+        message = Message(policy=default)
+        message["Content-Disposition"] = value
+        disposition = (
+            message.get_content_disposition() or value.split(";", 1)[0]
+        ).lower()
+        self.DispositionType = disposition
+        parameters = message.get_params(header="content-disposition", failobj=[])[1:]
+        self.Parameters = {
+            str(key).lower(): str(parameter) for key, parameter in parameters
+        }
+        self.FileName = message.get_filename() or self.Parameters.get("filename", "")
+        self.CreationDate = self._parse_date(self.Parameters.get("creation-date", ""))
+        self.ModificationDate = self._parse_date(
+            self.Parameters.get("modification-date", "")
+        )
+        self.ReadDate = self._parse_date(self.Parameters.get("read-date", ""))
+        size = self.Parameters.get("size", "")
+        self.Size = int(size) if size.isdigit() else 0
 
-        This method extracts disposition type (inline/attachment) and associated parameters
-        like filename, size, creation-date, and modification-date from the header string.
+    def get_parameter(
+        self, name: str, default: _DefaultT | None = None
+    ) -> str | _DefaultT | None:
+        """Return a decoded parameter by case-insensitive name.
 
-        :param ContentDispositionString: The Content-Disposition header value to parse.
-        :returns: None - modifies the object's properties in place.
+        Args:
+            name: Parameter name to look up.
+            default: Value returned when the parameter is absent.
         """
-        ContentDispositionString = ContentDispositionString.strip()
-        if ContentDispositionString.find(";") != -1:
-            ContentDispositionValues = ContentDispositionString.split(";")
-            if (ContentDispositionValues[0].strip()).lower() == "inline":
-                self.DispositionType = DispositionType.INLINE
-            else:
-                self.DispositionType = DispositionType.ATTACHMENT
-            for index in range(1, len(ContentDispositionValues)):
-                Current_Value = ContentDispositionValues[index]
-                index_one = Current_Value.find("\"")
-                if index_one == -1:
-                    key = Current_Value.split("=")[0]
-                    value = Current_Value.split("=")[1]
-                else:
-                    key = Current_Value[0:index_one]
-                    key = key.strip("=")
-                    Current_Value = Current_Value.replace(key + "=\"", "")
-                    index_two = Current_Value.find("\"")
-                    value = Current_Value[0:index_two]
+        return self.Parameters.get(name.lower(), default)
 
-                if key.lower().strip() == "filename":
-                    self.FileName = value.strip()
-                elif key.lower().strip() == "size":
-                    self.Size = int(value.strip())
-                elif key.lower().strip() == "creation-date":
-                    self.CreationDate = value.strip()
-                elif key.lower().strip() == "modification-date":
-                    self.ModificationDate = value.strip()
-                else:
-                    continue
-        else:
-            self.DispositionType = ContentDispositionString.strip()
+    @staticmethod
+    def _parse_date(value: str) -> ParsedDateTime | None:
+        """Convert an RFC-style disposition date into a lossless typed value."""
+        if not value:
+            return None
+        try:
+            return ParsedDateTime(value, parsedate_to_datetime(value), True)
+        except (TypeError, ValueError, OverflowError):
+            return ParsedDateTime(value, None, False)
+
+    def to_header_value(self) -> str:
+        """Return the normalized Content-Disposition value for a header field."""
+        message = Message(policy=default)
+        message["Content-Disposition"] = self.RawValue or self.DispositionType
+        return str(message["Content-Disposition"])
 
     def __str__(self) -> str:
-        """
-        Returns a JSON string representation of the ContentDisposition object.
+        """Return the normalized Content-Disposition field value."""
+        return self.to_header_value()
 
-        This method converts all properties into a dictionary and serializes it
-        as a JSON string for easy debugging and logging purposes.
-
-        :returns: JSON string containing all ContentDisposition properties.
-        """
-        return_data = dict()
-        return_data.update({
-            "Disposition-Type": self.DispositionType.name,
-            "File-Name": self.FileName,
-            "Creation-Date": self.CreationDate,
-            "Modification-Date": self.ModificationDate,
-            "Size": self.Size
-        })
-
-        return json.dumps(return_data)
+    def to_dict(self) -> JsonObject:
+        """Return a JSON-compatible representation of the disposition metadata."""
+        return {
+            "type": self.DispositionType,
+            "filename": self.FileName,
+            "creation_date": self.CreationDate.to_dict() if self.CreationDate else None,
+            "modification_date": self.ModificationDate.to_dict()
+            if self.ModificationDate
+            else None,
+            "read_date": self.ReadDate.to_dict() if self.ReadDate else None,
+            "size": self.Size,
+            "parameters": dict(self.Parameters),
+            "raw_value": self.RawValue,
+            "is_explicit": self.IsExplicit,
+        }

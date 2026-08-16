@@ -1,69 +1,74 @@
 ![EMLMailReader logo](https://static.citadelofcode.com/emlmailreader/logo.png)
 
-![PyPI version](https://img.shields.io/pypi/v/EMLMailReader.svg) ![Static Badge](https://img.shields.io/badge/powered_by-Codadel-orange)
+[![PyPI version](https://img.shields.io/pypi/v/EMLMailReader.svg)](https://pypi.org/project/EMLMailReader/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![Powered by Codadel](https://img.shields.io/badge/powered_by-Codadel-orange)](https://github.com/codadel)
 
-## Overview
+# EMLMailReader
 
-EMLMailReader is a comprehensive Python library designed to parse and extract information from EML (Email Message Format) files. The library provides a robust solution for reading email files, extracting headers, body content, attachments, and handling complex MIME structures with support for various encoding formats.
+EMLMailReader parses local EML files and in-memory Internet messages into
+structured Python objects for inspection, batch processing, and analytics.
+The current release line is v2 and has no runtime dependencies outside the
+Python standard library.
 
 ## Key Features
 
-- **Complete EML Parsing**: Parse standard EML files with full MIME support
-- **Multi-part Message Support**: Handle complex email structures with nested MIME parts
-- **Attachment Extraction**: Extract and save file attachments with proper metadata
-- **Encoding Support**: Decode Base64, Quoted-Printable, and other transfer encodings
-- **Address Parsing**: Parse and manage email addresses with display names
-- **Logging Integration**: Comprehensive logging for debugging and monitoring
-- **Exception Handling**: Custom exceptions for specific error scenarios
+- Read EML files, bytes, strings, and streams.
+- Inspect headers, sender and recipient addresses, message bodies, MIME parts,
+  and attachments.
+- Preserve useful source information while decoding message content.
+- Record recoverable parsing problems or enforce strict validation.
+- Export parsed message data for downstream analytics.
+- Use the package with Python 3.12 or newer and inline type information.
 
 ## Quick Start
 
 ### Installation
 
-```bash
-pip install emlmailreader
+```console
+python -m pip install "emlmailreader>=2,<3"
 ```
+
+Pin the major version in production so a future breaking release does not
+change your analytics records unexpectedly.
 
 ### Basic Usage
 
 ```python
-from EMLMailReader import MailReader, LoggingMode
+from EMLMailReader import MailReader
 
-# Initialize the mail reader
-reader = MailReader(logging_mode=LoggingMode.CONSOLE)
+message = MailReader().get_email("/path/to/email.eml")
 
-# Parse an EML file
-message = reader.get_email("/path/to/email.eml")
+if message is None:
+    raise RuntimeError("The email could not be read")
 
-if message:
-    # Access basic email information
-    print(f"From: {message.From}")
-    print(f"Subject: {message.Subject}")
-    print(f"Date: {message.Date}")
-
-    # Access recipients
-    print(f"To: {message.To}")
-    print(f"Cc: {message.Cc}")
-
-    # Access body content
-    print(f"Body: {message.Body}")
-
-    # Check for attachments
-    if message.Attachments.length() > 0:
-        print(f"Found {message.Attachments.length()} attachments")
-
-        # Save attachments to a folder
-        message.save_attachments("/path/to/output/folder")
-
-    # Export message as JSON
-    json_data = message.export_as_json()
-    print(json_data)
+print(message.Subject)
+print([mailbox.Email for mailbox in message.From.Mailboxes])
+print(message.TextBody)
 ```
 
 ## License
 
-This library is distributed under the terms specified in the LICENSE file.
+This library is distributed under the terms specified in the
+[LICENSE](LICENSE) file.
+
+## Documentation
+
+The [documentation portal](https://codadel.github.io/EMLMailReader/latest/)
+contains installation guidance, analytics examples, versioned behavior notes,
+migration guidance, and the generated API reference. Use its version selector
+to open the v1.0.4 or v2 documentation.
+
+## AI-Assisted Development
+
+The repository includes a reusable
+[use-emlmailreader skill](https://github.com/codadel/EMLMailReader/tree/develop/skill/use-emlmailreader)
+for AI agents that build Python parsing, ingestion, or analytics code with
+this library. It covers recommended API patterns, testing practices,
+migration guidance, and privacy-aware handling. Follow your AI tool's normal
+process for installing and using repository skills.
 
 ## Support
 
-For issues, questions, or contributions, please refer to the project repository.
+For issues and feature requests, use the
+[GitHub issue tracker](https://github.com/codadel/EMLMailReader/issues).

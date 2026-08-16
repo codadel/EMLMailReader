@@ -1,0 +1,31 @@
+INHERIT: mkdocs.yml
+
+site_description: Documentation for the EMLMailReader v1 release line
+edit_uri: edit/develop/docs/v1/
+docs_dir: docs/v1
+site_dir: site/v1
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Parse your first email: getting-started/first-email.md
+      - Understand the message model: getting-started/message-model.md
+  - Guides:
+      - Build analytics records: guides/analytics.md
+      - Process a folder of emails: guides/batch-processing.md
+      - Work with addresses: guides/addresses.md
+      - Work with attachments: guides/attachments.md
+      - Export parsed data: guides/exporting.md
+      - Logging and failures: guides/logging-errors.md
+  - Concepts:
+      - Email and MIME essentials: concepts/email-mime.md
+      - v1 behavior and limitations: concepts/v1-behavior.md
+      - Documentation versions: concepts/versioning.md
+  - API reference:
+      - Overview: reference/index.md
+      - Core parser and message: reference/core.md
+      - Addresses: reference/addresses.md
+      - Attachments: reference/attachments.md
+      - MIME types and enums: reference/mime.md
+      - Utilities and exceptions: reference/utilities.md

@@ -3,15 +3,103 @@ python = "3.12"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
+NO_MKDOCS_2_WARNING = "1"
 
 [tasks.setup]
 description = "Install local package and project requirements"
-run = "python -m pip install --upgrade pip && python -m pip install -e . -r requirements.txt"
+run = """
+python -m pip install --upgrade pip
+python -m pip install -e . -r requirements.txt
+pre-commit install --install-hooks
+"""
 
 [tasks.test]
-description = "Run the unittest suite"
-run = "python -m unittest discover tests -v"
+description = "Run the pytest suite"
+run = "pytest"
+
+[tasks.unit]
+description = "Run in-memory unit tests without filesystem handling"
+run = "pytest tests/unit"
+
+[tasks.functional]
+description = "Run end-to-end EML processing functional tests"
+run = "pytest tests/functional"
+
+[tasks.tooling]
+description = "Run filesystem-backed packaging and release tooling tests"
+run = "pytest tests/tooling"
+
+[tasks.test-verbose]
+description = "Run the pytest suite with individual test names"
+run = "pytest -vv"
 
 [tasks.coverage]
-description = "Run tests with coverage"
-run = "coverage run --source=EMLMailReader -m unittest discover tests && coverage report"
+description = "Run tests with branch coverage"
+run = "pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-fail-under=95"
+
+[tasks.coverage-html]
+description = "Run tests and generate terminal and HTML coverage reports"
+run = "pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-report=html --cov-fail-under=95"
+
+[tasks.format]
+description = "Apply Ruff formatting manually"
+run = "ruff format ."
+
+[tasks.format-check]
+description = "Check Ruff formatting without changing files"
+run = "ruff format --check ."
+
+[tasks.lint]
+description = "Run Ruff lint checks without changing files"
+run = "ruff check ."
+
+[tasks.lint-fix]
+description = "Apply safe Ruff lint fixes manually"
+run = "ruff check --fix ."
+
+[tasks.typecheck]
+description = "Run strict MyPy analysis"
+run = "mypy EMLMailReader tests"
+
+[tasks.hooks]
+description = "Install or update the repository pre-commit hook"
+run = "pre-commit install --install-hooks"
+
+[tasks.pre-commit]
+description = "Run every check-only pre-commit hook against the repository"
+run = "pre-commit run --all-files --show-diff-on-failure"
+
+[tasks.quality]
+description = "Run every non-mutating quality and coverage check"
+run = """
+ruff format --check .
+ruff check .
+mypy EMLMailReader tests
+pytest --cov=EMLMailReader --cov-branch --cov-report=term-missing --cov-fail-under=95
+"""
+
+[tasks.docs-setup]
+description = "Install documentation dependencies"
+run = "python -m pip install -r requirements-docs.txt"
+
+[tasks.docs-build]
+description = "Strictly build a documentation major version (defaults to v2)"
+run = "python scripts/docs.py build"
+
+[tasks.docs-serve]
+description = "Preview a documentation major version (defaults to v2)"
+run = "python scripts/docs.py serve"
+raw = true
+
+[tasks.docs-versioned-serve]
+description = "Preview all versions currently published to gh-pages"
+run = "mike serve --branch gh-pages"
+raw = true
+
+[tasks.release-metadata]
+description = "Validate and display package and documentation release metadata"
+run = "python scripts/release_metadata.py"
+
+[tasks.test-release-metadata]
+description = "Resolve the next TestPyPI release candidate without changing files"
+run = "python -m scripts.test_release_metadata"
