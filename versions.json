@@ -1,10 +1,15 @@
 [
   {
-    "version": "v1",
-    "title": "v1 \u00b7 1.0.4",
+    "version": "v2",
+    "title": "v2 \u00b7 2.0.0",
     "aliases": [
       "latest",
       "stable"
     ]
+  },
+  {
+    "version": "v1",
+    "title": "v1 \u00b7 1.0.4",
+    "aliases": []
   }
 ]
