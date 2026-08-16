@@ -1,6 +1,5 @@
 ![EMLMailReader logo](https://static.citadelofcode.com/emlmailreader/logo.png)
 
-[![PyPI version](https://img.shields.io/pypi/v/EMLMailReader.svg)](https://pypi.org/project/EMLMailReader/)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![Powered by Codadel](https://img.shields.io/badge/powered_by-Codadel-orange)](https://github.com/codadel)
 
