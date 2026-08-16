@@ -89,7 +89,9 @@ Actions OIDC through `pypa/gh-action-pypi-publish`.
 ### GitHub Pages
 
 Under **Settings → Pages**, select **GitHub Actions** as the source. Allow the
-`release` branch to deploy through the `github-pages` environment.
+`release` branch and `refs/pull/*/merge` to deploy through the `github-pages`
+environment. The release workflow runs from a closed pull-request event, so
+its Pages deployment ref is `refs/pull/<number>/merge`, not `release`.
 
 The workflow also needs permission to push:
 
