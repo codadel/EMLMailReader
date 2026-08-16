@@ -6,6 +6,14 @@ This file records changes that have already been published to
 Do not add an unreleased section or reserve a future version number. Add a new
 version entry only after that version is visible on PyPI.
 
+## [2.0.1](https://pypi.org/project/emlmailreader/2.0.1/) - 2026-08-16
+
+### What's Changed
+* Release version 2.0.1 by @mkbalaji-dev in https://github.com/codadel/EMLMailReader/pull/7
+
+
+**Full Changelog**: https://github.com/codadel/EMLMailReader/compare/v2.0.0...v2.0.1
+
 ## [2.0.0](https://pypi.org/project/emlmailreader/2.0.0/) - 2026-08-16
 
 ### What's Changed
