@@ -6,6 +6,16 @@ This file records changes that have already been published to
 Do not add an unreleased section or reserve a future version number. Add a new
 version entry only after that version is visible on PyPI.
 
+## [2.0.0](https://pypi.org/project/emlmailreader/2.0.0/) - 2026-08-16
+
+### What's Changed
+* docs: add the versioned v1 documentation portal by @mkbalaji-dev in https://github.com/codadel/EMLMailReader/pull/5
+* feat: deliver standards-compliant EML parser overhaul by @mkbalaji-dev in https://github.com/codadel/EMLMailReader/pull/4
+* Releasing new version 2.0 by @mkbalaji-dev in https://github.com/codadel/EMLMailReader/pull/6
+
+
+**Full Changelog**: https://github.com/codadel/EMLMailReader/compare/v1.0.4...v2.0.0
+
 ## [1.0.4](https://pypi.org/project/emlmailreader/1.0.4/) - 2026-07-10
 
 ### Added
