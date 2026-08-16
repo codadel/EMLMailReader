@@ -13,7 +13,7 @@ stored in `pyproject.toml`.
 
 ## Setup
 
-Follow [Local workspace setup](SETUP.md) for the initial mise, Python,
+Follow [Local workspace setup](local-setup.md) for the initial mise, Python,
 dependency, editable-package, and pre-commit installation. Reinstall the hook
 separately when needed:
 
@@ -76,7 +76,7 @@ workflow repeats these checks against the automatically selected release
 candidate before building it. The separate publish job runs only when that
 quality-and-build job succeeds. A closed but unmerged pull request does not run
 the TestPyPI jobs. See
-[TestPyPI candidate publishing](TESTPYPI.md) for the version rules and failure
+[TestPyPI candidate publishing](testpypi.md) for the version rules and failure
 conditions.
 
 All workflows use normal fail-fast GitHub Actions behavior during quality

@@ -85,5 +85,5 @@ mise run pre-commit
 ```
 
 For test boundaries and direct pytest alternatives, see
-[Test instructions](TEST_INSTRUCTIONS.md). For the complete Ruff, MyPy,
-pre-commit, and CI policy, see [Code quality](QUALITY.md).
+[Test instructions](test-instructions.md). For the complete Ruff, MyPy,
+pre-commit, and CI policy, see [Code quality](quality.md).

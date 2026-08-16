@@ -6,10 +6,17 @@ a pull request from `develop` into `release` is merged. It publishes
 release commit.
 
 Test publications are handled separately after pull requests merge into
-`develop`. See [TestPyPI candidate publishing](TESTPYPI.md) for automatic RC
+`develop`. See [TestPyPI candidate publishing](testpypi.md) for automatic RC
 selection and verification. The test workflow cannot tag releases, update the
 changelog, deploy documentation, create a GitHub Release, or access the
 production publishing environment.
+
+## Contents
+
+- [Version source of truth](#version-source-of-truth)
+- [Automated release flow](#automated-release-flow)
+- [Repository configuration](#repository-configuration)
+- [Release safeguards](#release-safeguards)
 
 ## Version source of truth
 

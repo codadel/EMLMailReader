@@ -5,6 +5,10 @@ description: Build reliable, typed, and tested Python applications with EMLMailR
 
 # Use EMLMailReader
 
+This is a consumer skill for developers writing applications with the installed
+EMLMailReader library. It is not a contributor workflow for changing this
+repository; repository changes follow the project-local contributor guidelines.
+
 Build email parsing and analytics code around the library's structured values,
 diagnostics, and recursive MIME model. Prefer complete, quality-aware records
 over fragile string parsing or silent data loss.

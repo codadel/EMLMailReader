@@ -84,7 +84,7 @@ without publishing anything.
 
 Documentation is published only by `.github/workflows/release.yml`; there is no
 separate branch-specific documentation deployment. See
-[Release process](RELEASE.md) for the complete order and repository settings.
+[Release process](release.md) for the complete order and repository settings.
 
 Repository administrators must keep **GitHub Actions** selected under
 **Settings → Pages** and allow the `release` branch to deploy through the

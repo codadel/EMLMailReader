@@ -1,0 +1,4 @@
+interface:
+  display_name: "EMLMailReader Contributor Guidelines"
+  short_description: "Repository contribution workflow and project guidelines"
+  default_prompt: "Use the EMLMailReader contributor guidelines for repository changes."

@@ -2,10 +2,17 @@
 
 This document provides instructions on how to run the test suite for the EMLMailReader library.
 
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Running all tests](#running-all-tests)
+- [Code coverage](#code-coverage)
+- [Continuous integration](#continuous-integration)
+
 ## Prerequisites
 
 Prepare the Python environment, editable package, development dependencies,
-and pre-commit hooks by following [Local workspace setup](SETUP.md).
+and pre-commit hooks by following [Local workspace setup](local-setup.md).
 
 The test toolchain uses:
 
@@ -17,10 +24,10 @@ The test toolchain uses:
 - MyPy for strict type checking of the library and tests.
 - pre-commit for check-only, fail-fast commit validation.
 
-See [Code quality](QUALITY.md) for manual formatting and lint-fix commands,
+See [Code quality](quality.md) for manual formatting and lint-fix commands,
 pre-commit behavior, and the complete quality workflow.
 
-## Running All Tests
+## Running all tests
 
 Run the concise test task:
 

@@ -2,7 +2,18 @@
 
 This document gives maintainers and AI agents the implementation context needed
 to change EMLMailReader safely. Public usage belongs in `README.md` and
-`docs/`; test and release procedures live in their dedicated `ai-docs` files.
+`docs/`; test and release procedures live in the other contributor-skill
+references.
+
+## Contents
+
+- [Purpose and standards](#purpose-and-standards)
+- [Source map](#source-map)
+- [Canonical public model](#canonical-public-model)
+- [Parsing entry points and error contracts](#parsing-entry-points-and-error-contracts)
+- [Modes and diagnostics](#modes-and-diagnostics)
+- [Resource and MIME invariants](#resource-and-mime-invariants)
+- [Implementation change guidance](#implementation-change-guidance)
 
 ## Purpose and standards
 
@@ -51,7 +62,7 @@ with diagnostics; strict parsing is the conformance-enforcement path.
 The project requires Python 3.12 or newer. Runtime code uses only the Python
 standard library. Development dependencies are in `requirements.txt`, and
 package metadata is in `pyproject.toml`. Strict typing, formatting, linting,
-and check-only automation are documented in [Code quality](QUALITY.md).
+and check-only automation are documented in [Code quality](quality.md).
 
 ## Canonical public model
 

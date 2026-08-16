@@ -1,8 +1,8 @@
 # Agent instructions
 
 These instructions apply to the entire repository. Keep public README content
-brief; put detailed API, implementation, testing, and release guidance in the
-linked documentation instead.
+brief; put detailed contributor guidance in the project-local contributor skill
+instead.
 
 ## Always follow
 
@@ -25,6 +25,20 @@ linked documentation instead.
 - Do not commit, push, tag, publish, or otherwise modify external state unless
   the user explicitly requests it.
 
+## Contributor skill boundaries
+
+- Use [.agents/skills/emlmailreader-contributor-guidelines/SKILL.md](.agents/skills/emlmailreader-contributor-guidelines/SKILL.md)
+  for repository changes. Its references contain the detailed setup,
+  implementation, testing, quality, documentation, release, and TestPyPI
+  guidance.
+- `skill/use-emlmailreader` is an end-user skill for developers writing code
+  with the installed EMLMailReader library. Do not use it while changing this
+  repository's source, tests, documentation, tooling, or workflows.
+- After implementation and validation, update the user skill only when the
+  public API or user-visible behavior, diagnostics, parser limits, testing
+  patterns, migration guidance, or privacy/safety expectations changed. Keep
+  contributor and release guidance out of that skill.
+
 ## Documentation sources
 
 - `README.md` is the concise PyPI-facing overview: installation, a minimal
@@ -32,26 +46,16 @@ linked documentation instead.
 - `docs/v2/` and `mkdocs.v2.yml` are the current v2 public documentation.
 - `docs/v1/` and `mkdocs.v1.yml` are the frozen v1.0.4 documentation. Never
   regenerate v1 pages against v2 code.
-- `ai-docs/DOCUMENTATION.md` describes the versioned portal and authoring
-  rules. Use `scripts/docs.py build vN` for a strict build and
+- The contributor skill's [documentation reference](.agents/skills/emlmailreader-contributor-guidelines/references/documentation.md)
+  describes the versioned portal and authoring rules. Use
+  `scripts/docs.py build vN` for a strict build and
   `scripts/docs.py serve vN` for a local preview.
 
 ## Read before changing
 
-- [Local workspace setup](ai-docs/SETUP.md): mise installation, bootstrap,
-  validation, and common commands.
-- [Library implementation](ai-docs/LIBRARY_IMPLEMENTATION.md): architecture,
-  standards behavior, canonical data model, parser contracts, diagnostics,
-  MIME handling, and resource limits.
-- [Test instructions](ai-docs/TEST_INSTRUCTIONS.md): unit/functional
-  boundaries, pytest commands, and coverage workflow.
-- [Code quality](ai-docs/QUALITY.md): Ruff, MyPy, pre-commit, CI enforcement,
-  and check-only automation.
-- [Documentation process](ai-docs/DOCUMENTATION.md): versioned source layout,
-  local builds, and publishing model.
-- [Release process](ai-docs/RELEASE.md): versioning, branch flow, tagging,
-  package publishing, and documentation deployment.
-- [TestPyPI process](ai-docs/TESTPYPI.md): RC selection and test publishing.
+- [Contributor guidelines](.agents/skills/emlmailreader-contributor-guidelines/SKILL.md)
+  and the relevant linked reference are required reading before repository
+  changes.
 - [Current public documentation](docs/v2/index.md) and [v1 documentation](docs/v1/index.md).
 
 ## Versioned documentation rules
@@ -88,6 +92,6 @@ git diff --check
 ```
 
 If mise is unavailable after setup, use the equivalent pytest, Ruff, MyPy,
-coverage, and pre-commit commands documented in
-[Test instructions](ai-docs/TEST_INSTRUCTIONS.md) and
-[Code quality](ai-docs/QUALITY.md).
+coverage, and pre-commit commands documented in the contributor skill's
+[test instructions](.agents/skills/emlmailreader-contributor-guidelines/references/test-instructions.md)
+and [quality reference](.agents/skills/emlmailreader-contributor-guidelines/references/quality.md).
